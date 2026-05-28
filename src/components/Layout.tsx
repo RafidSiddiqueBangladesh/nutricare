@@ -7,11 +7,14 @@ import {
   ChefHat, 
   Wallet,
   ChevronDown,
-  Palette
+  Palette,
+  LogOut,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { useTheme } from '@/src/contexts/ThemeContext';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { ThemeEditor } from './ThemeEditor';
 
 const NAV_ITEMS = [
@@ -25,7 +28,9 @@ const NAV_ITEMS = [
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { config } = useTheme();
+  const { user, signOut } = useAuth();
   const [isThemeOpen, setIsThemeOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   return (
     <div className="relative min-h-screen pb-24 overflow-hidden">
@@ -57,7 +62,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Header */}
-      <header className="relative z-10 px-6 pt-6 flex justify-center sticky top-0 bg-transparent">
+      <header className="relative z-10 px-6 pt-6 flex justify-between items-center sticky top-0 bg-transparent">
         <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-4 py-2 flex items-center gap-2">
           {NAV_ITEMS.find(item => location.pathname.startsWith(item.path))?.icon && (
             <div className="primary-color p-1 rounded-full text-slate-950">
@@ -69,6 +74,50 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </span>
           <div className="w-1.5 h-1.5 rounded-full primary-color" />
         </div>
+
+        {/* User Menu */}
+        {user && (
+          <div className="relative">
+            <button
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors border border-white/20"
+            >
+              <div className="w-6 h-6 rounded-full primary-color flex items-center justify-center text-xs font-bold text-black">
+                {user.name?.[0]?.toUpperCase() || 'U'}
+              </div>
+              <span className="text-xs font-bold text-white/80 max-w-[100px] truncate">{user.name}</span>
+              <ChevronDown size={14} className={`transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Dropdown Menu */}
+            <AnimatePresence>
+              {isUserMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  className="absolute top-full right-0 mt-2 w-48 glass-card rounded-2xl overflow-hidden z-50"
+                >
+                  <div className="p-3 border-b border-white/10">
+                    <p className="text-xs text-white/60 uppercase tracking-wider font-bold">Account</p>
+                    <p className="text-sm font-bold mt-1">{user.name}</p>
+                    <p className="text-xs text-white/60">{user.email}</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setIsUserMenuOpen(false);
+                      await signOut();
+                    }}
+                    className="w-full px-3 py-2 flex items-center gap-2 text-red-400 hover:bg-red-500/10 transition-colors text-sm font-bold"
+                  >
+                    <LogOut size={16} />
+                    Sign Out
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
       </header>
 
       {/* Page Content */}

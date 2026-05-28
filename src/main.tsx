@@ -2,7 +2,17 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { Layout } from './components/Layout';
+import { ProtectedRoute } from './components/ProtectedRoute';
+
+// Auth Pages
+import Landing from './screens/Landing';
+import SignIn from './screens/SignIn';
+import SignUp from './screens/SignUp';
+import AuthCallback from './screens/AuthCallback';
+
+// App Pages
 import Nutrition from './screens/Nutrition';
 import Exercise from './screens/Exercise';
 import Health from './screens/Health';
@@ -22,32 +32,197 @@ import PoseMonitor from './screens/PoseMonitor';
 import HandMonitor from './screens/HandMonitor';
 import './index.css';
 
+function AppRoutes() {
+  return (
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/" element={<Landing />} />
+      <Route path="/auth/signin" element={<SignIn />} />
+      <Route path="/auth/signup" element={<SignUp />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+
+      {/* Protected Routes */}
+      <Route
+        path="/nutrition"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Nutrition />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/exercises"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Exercise />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/exercises/coach/:id"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <ExerciseCoach />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Health />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/bmi"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <BMICalculator />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/hospitals"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <HospitalMap />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/doctors"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <DoctorBooking />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/history"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <AnalysisHistory />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/tracking"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <TrackingOptions />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/mood"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <MoodSuggestions />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/diagnosis"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <AIDiagnosis />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/monitor/face"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <FaceMonitor />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/monitor/pose"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <PoseMonitor />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/monitor/hand"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <HandMonitor />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/video-call/:doctorId"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <VideoCall />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cooking"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Cooking />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/costs"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Costs />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
+  );
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
       <BrowserRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Navigate to="/nutrition" replace />} />
-            <Route path="/nutrition" element={<Nutrition />} />
-            <Route path="/exercises" element={<Exercise />} />
-            <Route path="/exercises/coach/:id" element={<ExerciseCoach />} />
-            <Route path="/health" element={<Health />} />
-            <Route path="/health/bmi" element={<BMICalculator />} />
-            <Route path="/health/hospitals" element={<HospitalMap />} />
-            <Route path="/health/doctors" element={<DoctorBooking />} />
-            <Route path="/health/history" element={<AnalysisHistory />} />
-            <Route path="/health/tracking" element={<TrackingOptions />} />
-            <Route path="/health/mood" element={<MoodSuggestions />} />
-            <Route path="/health/diagnosis" element={<AIDiagnosis />} />
-            <Route path="/health/monitor/face" element={<FaceMonitor />} />
-            <Route path="/health/monitor/pose" element={<PoseMonitor />} />
-            <Route path="/health/monitor/hand" element={<HandMonitor />} />
-            <Route path="/video-call/:doctorId" element={<VideoCall />} />
-            <Route path="/cooking" element={<Cooking />} />
-            <Route path="/costs" element={<Costs />} />
-          </Routes>
-        </Layout>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>
   </StrictMode>,
