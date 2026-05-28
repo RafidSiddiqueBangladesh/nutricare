@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  /* Default color values */
+  --primary-hue: 200;
+  --accent-hue: 280;
+  --orb-1: 200;
+  --orb-2: 220;
+  --orb-3: 280;
+  --orb-4: 300;
+  --orb-5: 160;
+  --is-dark: 1;
+}
+
+@layer base {
+  body {
+    @apply bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 min-h-screen overflow-x-hidden transition-colors duration-500;
+  }
+
+  .dark {
+    @apply bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950;
+  }
+
+  .light {
+    @apply bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/10 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl;
+  }
+  
+  .glass-input {
+    @apply bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 transition-all;
+  }
+
+  .btn-primary {
+    @apply px-6 py-2.5 font-semibold rounded-full transition-all active:scale-95;
+  }
+}
+
+/* Dynamic orbs using CSS variables */
+.orb {
+  @apply fixed rounded-full filter blur-[80px] opacity-20 pointer-events-none transition-colors duration-500;
+  animation: orb-float 20s infinite alternate ease-in-out;
+}
+
+.orb-1 {
+  background: linear-gradient(135deg, hsl(var(--orb-1), 100%, 50%), hsl(var(--orb-1), 80%, 40%));
+}
+
+.orb-2 {
+  background: linear-gradient(135deg, hsl(var(--orb-2), 100%, 50%), hsl(var(--orb-2), 80%, 40%));
+}
+
+.orb-3 {
+  background: linear-gradient(135deg, hsl(var(--orb-3), 100%, 50%), hsl(var(--orb-3), 80%, 40%));
+}
+
+.orb-4 {
+  background: linear-gradient(135deg, hsl(var(--orb-4), 100%, 50%), hsl(var(--orb-4), 80%, 40%));
+}
+
+.orb-5 {
+  background: linear-gradient(135deg, hsl(var(--orb-5), 100%, 50%), hsl(var(--orb-5), 80%, 40%));
+}
+
+@keyframes orb-float {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(50px, 50px) scale(1.2); }
+}
+
+/* Primary and accent colors */
+.primary-color {
+  background-color: hsl(var(--primary-hue), 70%, 50%);
+  transition: background-color 0.3s ease;
+}
+
+.accent-color {
+  background-color: hsl(var(--accent-hue), 70%, 50%);
+  transition: background-color 0.3s ease;
+}
+
+.primary-border {
+  border-color: hsl(var(--primary-hue), 70%, 50%);
+  transition: border-color 0.3s ease;
+}
+
+.accent-border {
+  border-color: hsl(var(--accent-hue), 70%, 50%);
+  transition: border-color 0.3s ease;
+}
+
+.primary-text {
+  color: hsl(var(--primary-hue), 90%, 65%);
+  transition: color 0.3s ease;
+}
+
+.accent-text {
+  color: hsl(var(--accent-hue), 90%, 65%);
+  transition: color 0.3s ease;
+}
+
+.primary-shadow {
+  box-shadow: 0 0 30px hsl(var(--primary-hue), 70%, 50% / 0.3);
+  transition: box-shadow 0.3s ease;
+}
+
+.accent-shadow {
+  box-shadow: 0 0 30px hsl(var(--accent-hue), 70%, 50% / 0.3);
+  transition: box-shadow 0.3s ease;
+}
+

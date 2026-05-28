@@ -1,0 +1,14 @@
+{
+  "name": "LifeSync AI",
+  "description": "A comprehensive AI-powered health, nutrition, and fitness companion with real-time tracking, meal planning, and expense management.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "AI-powered fitness tracking",
+    "Nutrition logging",
+    "Health monitoring",
+    "Inventory management"
+  ]
+}
