@@ -8,6 +8,41 @@ export default function HandMonitor() {
   const navigate = useNavigate();
   const [handData, setHandData] = useState<HandDetectionResult | null>(null);
   const [isRunning, setIsRunning] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  const saveHandAnalysis = async () => {
+    if (!handData) return;
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/exercise/hand-analysis`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('sb_access_token') || ''}`,
+        },
+        body: JSON.stringify({
+          gesture: handData.gesture,
+          handsDetected: handData.hands?.length || 0,
+          confidence: handData.confidence,
+          timestamp: new Date().toISOString(),
+          handedness: handData.hands?.map((h: any) => h.label),
+        }),
+      });
+      if (response.ok) {
+        setSaveMessage('✅ Hand analysis saved successfully!');
+        setTimeout(() => setSaveMessage(null), 3000);
+      } else {
+        setSaveMessage('❌ Failed to save hand analysis');
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      setSaveMessage('❌ Error saving hand analysis');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -66,10 +101,26 @@ export default function HandMonitor() {
                 </p>
               </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-teal-500/20">
-              <p className="text-xs text-teal-300">
+            <div className="mt-3 pt-3 border-t border-teal-500/20 mb-3">
+              <p className="text-xs text-teal-300 mb-3">
                 ✋ {handData.hands?.map(h => h.label).join(', ') || 'Hands'} detected
               </p>
+              <button
+                onClick={saveHandAnalysis}
+                disabled={isSaving}
+                className="w-full bg-teal-500/30 hover:bg-teal-500/50 disabled:bg-gray-500/30 border border-teal-500/50 rounded-lg py-2 px-4 text-teal-300 hover:text-teal-200 transition-all font-semibold"
+              >
+                {isSaving ? 'Saving...' : '💾 Save Analysis'}
+              </button>
+              {saveMessage && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-xs text-center mt-2"
+                >
+                  {saveMessage}
+                </motion.p>
+              )}
             </div>
           </motion.div>
         )}

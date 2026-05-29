@@ -8,6 +8,42 @@ export default function PoseMonitor() {
   const navigate = useNavigate();
   const [poseData, setPoseData] = useState<PoseDetectionResult | null>(null);
   const [isRunning, setIsRunning] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  const savePoseAnalysis = async () => {
+    if (!poseData) return;
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/exercise/pose-analysis`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('sb_access_token') || ''}`,
+        },
+        body: JSON.stringify({
+          repCount: poseData.repCount || 0,
+          formScore: poseData.formScore || 0,
+          confidence: poseData.confidence,
+          timestamp: new Date().toISOString(),
+          exerciseType: poseData.exerciseType,
+          keypointCount: poseData.keypoints?.length || 0,
+        }),
+      });
+      if (response.ok) {
+        setSaveMessage('✅ Pose analysis saved successfully!');
+        setTimeout(() => setSaveMessage(null), 3000);
+      } else {
+        setSaveMessage('❌ Failed to save pose analysis');
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      setSaveMessage('❌ Error saving pose analysis');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -69,9 +105,25 @@ export default function PoseMonitor() {
               </div>
             </div>
             <div className="mt-3 pt-3 border-t border-teal-500/20">
-              <p className="text-xs text-teal-300">
+              <p className="text-xs text-teal-300 mb-3">
                 🔍 Detected {poseData.keypoints?.length || 0} body keypoints
               </p>
+              <button
+                onClick={savePoseAnalysis}
+                disabled={isSaving}
+                className="w-full bg-teal-500/30 hover:bg-teal-500/50 disabled:bg-gray-500/30 border border-teal-500/50 rounded-lg py-2 px-4 text-teal-300 hover:text-teal-200 transition-all font-semibold"
+              >
+                {isSaving ? 'Saving...' : '💾 Save Analysis'}
+              </button>
+              {saveMessage && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-xs text-center mt-2"
+                >
+                  {saveMessage}
+                </motion.p>
+              )}
             </div>
           </motion.div>
         )}

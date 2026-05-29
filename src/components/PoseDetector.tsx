@@ -40,129 +40,176 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [repCount, setRepCount] = useState(0);
-  const prevPoseRef = useRef<{ y: number }[]>([]);
+  const prevPoseRef = useRef<PoseLandmark[]>([]);
   const { videoRef, startCamera, error: cameraError } = useCamera();
+  const poseDetectorRef = useRef<any>(null);
   const animationRef = useRef<number | null>(null);
 
-  // Initialize
+  // Initialize real TensorFlow Pose Detection
   useEffect(() => {
-    setIsInitialized(true);
+    const initializePoseDetection = async () => {
+      try {
+        const tf = await import('@tensorflow/tfjs');
+        const poseDetection = await import('@tensorflow-models/pose-detection');
+
+        await tf.ready();
+
+        const detector = await poseDetection.createDetector(
+          poseDetection.SupportedModels.MoveNet,
+          { modelType: poseDetection.moveNet.modelType.SINGLEPOSE_THUNDER }
+        );
+
+        poseDetectorRef.current = detector;
+        setIsInitialized(true);
+        console.log('✅ Real Pose Detection Initialized');
+      } catch (err) {
+        console.error('❌ Pose detection init error:', err);
+        setError('Pose detection unavailable');
+      }
+    };
+
+    initializePoseDetection();
   }, []);
 
   // Start camera
   useEffect(() => {
     if (isInitialized && !cameraError) {
-      startCamera();
+      startCamera().catch(err => {
+        console.error('Camera error:', err);
+        setError(`Camera: ${err.message}`);
+      });
     }
   }, [isInitialized, startCamera, cameraError]);
 
-  // Generate mock keypoints
-  const generateMockKeypoints = useCallback((): PoseLandmark[] => {
-    return Array.from({ length: 17 }, (_, i) => ({
-      x: Math.random() * 0.8 + 0.1,
-      y: Math.random() * 0.8 + 0.1,
-      score: Math.random() > 0.3 ? Math.random() * 0.5 + 0.5 : 0,
-      name: `keypoint_${i}`,
-    }));
+  // Count reps from real pose data
+  const countReps = useCallback((keypoints: PoseLandmark[]) => {
+    if (prevPoseRef.current.length === 0) {
+      prevPoseRef.current = keypoints;
+      return 0;
+    }
+
+    const leftShoulder = keypoints[5];
+    const rightShoulder = keypoints[6];
+    const prevLeftShoulder = prevPoseRef.current[5];
+
+    if (!leftShoulder || !rightShoulder || !prevLeftShoulder) return 0;
+
+    // Detect rep by shoulder movement
+    const yMovement = Math.abs(leftShoulder.y - prevLeftShoulder.y);
+    if (yMovement > 0.1) {
+      prevPoseRef.current = keypoints;
+      return 1;
+    }
+
+    prevPoseRef.current = keypoints;
+    return 0;
   }, []);
 
-  // Detection loop
+  // Real detection loop
   useEffect(() => {
-    if (!isRunning || !videoRef.current || !isInitialized) return;
+    if (!isRunning || !videoRef.current || !isInitialized || !poseDetectorRef.current) return;
 
-    let animationId: number;
     const detectPose = async () => {
       const video = videoRef.current;
-      
-      // Generate mock keypoints
-      const keypoints = generateMockKeypoints();
-      const formScore = Math.round(
-        (keypoints.filter(k => k.score > 0.3).length / keypoints.length) * 100
-      );
+      const detector = poseDetectorRef.current;
 
-      // Count reps based on movement
-      if (prevPoseRef.current.length > 0 && keypoints[11]) {
-        const yMovement = Math.abs(keypoints[11].y - (prevPoseRef.current[11]?.y || 0));
-        if (yMovement > 0.15) {
-          setRepCount(prev => prev + 1);
-        }
-      }
-      prevPoseRef.current = keypoints;
+      if (video && video.readyState === 4) {
+        try {
+          const poses = await detector.estimatePoses(video);
 
-      const result: PoseDetectionResult = {
-        detected: keypoints.length > 0,
-        confidence: formScore / 100,
-        keypoints,
-        repCount,
-        formScore,
-        exerciseType,
-      };
+          if (poses && poses.length > 0) {
+            const pose = poses[0];
+            const keypoints: PoseLandmark[] = pose.keypoints.map((kp: any) => ({
+              x: kp.x / video.videoWidth,
+              y: kp.y / video.videoHeight,
+              score: kp.score || 0,
+              name: kp.name,
+            }));
 
-      onDetection?.(result);
+            const repInc = countReps(keypoints);
+            if (repInc > 0) {
+              setRepCount(prev => prev + repInc);
+            }
 
-      // Draw on canvas
-      if (showCanvas && canvasRef.current) {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          canvas.width = video?.videoWidth || 640;
-          canvas.height = video?.videoHeight || 480;
-          
-          // Draw video if available, otherwise gradient
-          if (video && video.readyState === 4) {
-            ctx.drawImage(video, 0, 0);
+            const formScore = Math.round(
+              (keypoints.filter(k => k.score > 0.3).length / keypoints.length) * 100
+            );
+
+            // Draw real poses on canvas
+            if (showCanvas && canvasRef.current) {
+              const canvas = canvasRef.current;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                ctx.drawImage(video, 0, 0);
+
+                // Draw keypoints
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+                keypoints.forEach(kp => {
+                  if (kp.score > 0.3) {
+                    ctx.beginPath();
+                    ctx.arc(kp.x * canvas.width, kp.y * canvas.height, 6, 0, 2 * Math.PI);
+                    ctx.fill();
+                  }
+                });
+
+                // Draw skeleton
+                ctx.strokeStyle = 'rgba(0, 255, 0, 0.6)';
+                ctx.lineWidth = 3;
+                KEYPOINT_PAIRS.forEach(([i, j]) => {
+                  const kp1 = keypoints[i];
+                  const kp2 = keypoints[j];
+                  if (kp1 && kp2 && kp1.score > 0.3 && kp2.score > 0.3) {
+                    ctx.beginPath();
+                    ctx.moveTo(kp1.x * canvas.width, kp1.y * canvas.height);
+                    ctx.lineTo(kp2.x * canvas.width, kp2.y * canvas.height);
+                    ctx.stroke();
+                  }
+                });
+
+                // Draw real results
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText(`Reps: ${repCount} 💪`, 20, 40);
+                ctx.font = '14px Arial';
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+                ctx.fillText(`Form: ${formScore}% | Confidence: ${Math.round(Math.max(...keypoints.map(k => k.score)) * 100)}%`, 20, 70);
+              }
+            }
+
+            onDetection?.({
+              detected: true,
+              confidence: Math.max(...keypoints.map(k => k.score)),
+              keypoints,
+              repCount,
+              formScore,
+              exerciseType,
+            });
           } else {
-            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-            gradient.addColorStop(0, 'rgba(0, 30, 40, 0.9)');
-            gradient.addColorStop(1, 'rgba(0, 50, 60, 0.9)');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            onDetection?.({
+              detected: false,
+              confidence: 0,
+              keypoints: [],
+              repCount,
+              formScore: 0,
+              exerciseType,
+            });
           }
-
-          // Draw keypoints
-          ctx.fillStyle = 'rgb(0, 255, 0)';
-          keypoints.forEach(kp => {
-            if (kp.score > 0.3) {
-              ctx.beginPath();
-              ctx.arc(kp.x * canvas.width, kp.y * canvas.height, 5, 0, 2 * Math.PI);
-              ctx.fill();
-            }
-          });
-
-          // Draw skeleton
-          ctx.strokeStyle = 'rgb(0, 255, 0)';
-          ctx.lineWidth = 2;
-          KEYPOINT_PAIRS.forEach(([i, j]) => {
-            const kp1 = keypoints[i];
-            const kp2 = keypoints[j];
-            if (kp1 && kp2 && kp1.score > 0.3 && kp2.score > 0.3) {
-              ctx.beginPath();
-              ctx.moveTo(kp1.x * canvas.width, kp1.y * canvas.height);
-              ctx.lineTo(kp2.x * canvas.width, kp2.y * canvas.height);
-              ctx.stroke();
-            }
-          });
-          
-          // Draw rep counter
-          ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
-          ctx.font = 'bold 24px Arial';
-          ctx.fillText(`Reps: ${repCount}`, 20, 40);
-          
-          // Draw info
-          if (!video || video.readyState !== 4) {
-            ctx.fillStyle = 'rgba(255, 100, 0, 0.8)';
-            ctx.font = '14px Arial';
-            ctx.fillText('Camera not available - showing mock data', 20, canvas.height - 20);
-          }
+        } catch (err) {
+          console.error('Pose detection error:', err);
         }
       }
 
-      animationId = requestAnimationFrame(detectPose);
+      animationRef.current = requestAnimationFrame(detectPose);
     };
 
-    animationId = requestAnimationFrame(detectPose);
-    return () => cancelAnimationFrame(animationId);
-  }, [isRunning, isInitialized, showCanvas, onDetection, generateMockKeypoints, repCount, exerciseType]);
+    animationRef.current = requestAnimationFrame(detectPose);
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [isRunning, isInitialized, showCanvas, onDetection, countReps, repCount, exerciseType]);
 
   return (
     <div className="relative w-full h-full">

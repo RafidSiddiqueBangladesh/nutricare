@@ -51,128 +51,182 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { videoRef, startCamera, error: cameraError } = useCamera();
+  const handLandmarkerRef = useRef<any>(null);
   const animationRef = useRef<number | null>(null);
 
-  // Initialize
+  // Initialize real MediaPipe Hand Landmarker
   useEffect(() => {
-    setIsInitialized(true);
-  }, []);
+    const initializeHandLandmarker = async () => {
+      try {
+        const vision = await import('@mediapipe/tasks-vision');
+        const { HandLandmarker, FilesetResolver } = vision;
+
+        const filesetResolver = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/wasm'
+        );
+
+        const landmarker = await HandLandmarker.createFromOptions(filesetResolver, {
+          baseOptions: {
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-studio/latest/hand_landmarker.task',
+          },
+          runningMode: 'VIDEO',
+          numHands: maxHands,
+        });
+
+        handLandmarkerRef.current = landmarker;
+        setIsInitialized(true);
+        console.log('✅ Real Hand Detection Initialized');
+      } catch (err) {
+        console.error('❌ Hand detection init error:', err);
+        setError('Hand detection unavailable');
+      }
+    };
+
+    initializeHandLandmarker();
+  }, [maxHands]);
 
   // Start camera
   useEffect(() => {
     if (isInitialized && !cameraError) {
-      startCamera();
+      startCamera().catch(err => {
+        console.error('Camera error:', err);
+        setError(`Camera: ${err.message}`);
+      });
     }
   }, [isInitialized, startCamera, cameraError]);
 
-  // Generate mock hand keypoints
-  const generateMockHand = useCallback((): HandLandmark[] => {
-    return Array.from({ length: 21 }, (_, i) => ({
-      x: Math.random() * 0.3 + 0.2,
-      y: Math.random() * 0.3 + 0.2,
-      z: Math.random() * 0.1,
-      name: HAND_NAMES[i],
-    }));
-  }, []);
-
-  // Detect gesture
+  // Detect gesture from real hand landmarks
   const detectGesture = useCallback((keypoints: HandLandmark[]): string => {
-    if (keypoints.length < 21) return 'unknown';
-    const avgX = keypoints.reduce((sum, k) => sum + k.x, 0) / keypoints.length;
-    const avgY = keypoints.reduce((sum, k) => sum + k.y, 0) / keypoints.length;
+    if (keypoints.length < 21) return 'neutral';
 
-    if (avgX < 0.3 && avgY < 0.3) return 'thumbs-up';
-    if (avgX > 0.7) return 'peace';
+    const wrist = keypoints[0];
+    const thumb = keypoints[4];
+    const index = keypoints[8];
+    const middle = keypoints[12];
+    const ring = keypoints[16];
+    const pinky = keypoints[20];
+
+    if (!wrist || !thumb || !index || !middle) return 'neutral';
+
+    // Check thumb up gesture
+    if (thumb.y < wrist.y - 0.1 && Math.abs(thumb.x - wrist.x) < 0.05) {
+      return 'thumbs-up';
+    }
+
+    // Check peace sign
+    if (index.y < wrist.y && middle.y < wrist.y && ring.y > wrist.y && pinky.y > wrist.y) {
+      return 'peace';
+    }
+
+    // Check open palm
+    if (
+      thumb.x < wrist.x &&
+      index.x > wrist.x &&
+      Math.abs(thumb.y - wrist.y) < 0.1 &&
+      index.y > middle.y &&
+      middle.y > ring.y
+    ) {
+      return 'open-palm';
+    }
+
     return 'neutral';
   }, []);
 
-  // Detection loop
+  // Real detection loop
   useEffect(() => {
-    if (!isRunning || !videoRef.current || !isInitialized) return;
+    if (!isRunning || !videoRef.current || !isInitialized || !handLandmarkerRef.current) return;
 
-    let animationId: number;
     const detectHands = async () => {
       const video = videoRef.current;
-      
-      // Generate mock hands
-      const numHands = Math.random() > 0.5 ? 1 : 0;
-      const hands = Array.from({ length: numHands }, (_, i) => {
-        const keypoints = generateMockHand();
-        return {
-          keypoints,
-          label: i === 0 ? 'left' : 'right',
-        };
-      });
+      const landmarker = handLandmarkerRef.current;
 
-      const result: HandDetectionResult = {
-        detected: hands.length > 0,
-        confidence: hands.length > 0 ? 0.75 : 0,
-        hands,
-        gesture: hands.length > 0 ? detectGesture(hands[0].keypoints) : 'none',
-      };
+      if (video && video.readyState === 4) {
+        try {
+          const results = await landmarker.detectForVideo(video, performance.now());
 
-      onDetection?.(result);
+          if (results.landmarks && results.landmarks.length > 0) {
+            const hands = results.landmarks.map((landmarks: any, idx: number) => ({
+              keypoints: landmarks.map((lm: any) => ({
+                x: lm.x,
+                y: lm.y,
+                z: lm.z || 0,
+                name: HAND_NAMES[landmarks.indexOf(lm)],
+              })),
+              label: results.handedness?.[idx]?.displayName?.toLowerCase() || (idx === 0 ? 'left' : 'right'),
+            }));
 
-      // Draw on canvas
-      if (showCanvas && canvasRef.current) {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          canvas.width = video?.videoWidth || 640;
-          canvas.height = video?.videoHeight || 480;
-          
-          // Draw video if available, otherwise gradient
-          if (video && video.readyState === 4) {
-            ctx.drawImage(video, 0, 0);
-          } else {
-            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-            gradient.addColorStop(0, 'rgba(0, 30, 40, 0.9)');
-            gradient.addColorStop(1, 'rgba(0, 50, 60, 0.9)');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-          }
+            // Draw real hand detections
+            if (showCanvas && canvasRef.current) {
+              const canvas = canvasRef.current;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
 
-          hands.forEach((hand, handIdx) => {
-            const color = handIdx === 0 ? 'rgb(0, 255, 0)' : 'rgb(255, 0, 255)';
-            
-            // Draw keypoints
-            ctx.fillStyle = color;
-            hand.keypoints.forEach(kp => {
-              ctx.beginPath();
-              ctx.arc(kp.x * canvas.width, kp.y * canvas.height, 5, 0, 2 * Math.PI);
-              ctx.fill();
-            });
+                ctx.drawImage(video, 0, 0);
 
-            // Draw connections
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            HAND_CONNECTIONS.forEach(([i, j]) => {
-              const kp1 = hand.keypoints[i];
-              const kp2 = hand.keypoints[j];
-              if (kp1 && kp2) {
-                ctx.beginPath();
-                ctx.moveTo(kp1.x * canvas.width, kp1.y * canvas.height);
-                ctx.lineTo(kp2.x * canvas.width, kp2.y * canvas.height);
-                ctx.stroke();
+                hands.forEach((hand, handIdx) => {
+                  const color = handIdx === 0 ? 'rgba(0, 255, 0, 0.9)' : 'rgba(255, 0, 255, 0.9)';
+
+                  // Draw keypoints
+                  ctx.fillStyle = color;
+                  hand.keypoints.forEach((kp: HandLandmark) => {
+                    ctx.beginPath();
+                    ctx.arc(kp.x * canvas.width, kp.y * canvas.height, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                  });
+
+                  // Draw connections
+                  ctx.strokeStyle = color;
+                  ctx.lineWidth = 2;
+                  HAND_CONNECTIONS.forEach(([i, j]) => {
+                    const kp1 = hand.keypoints[i];
+                    const kp2 = hand.keypoints[j];
+                    if (kp1 && kp2) {
+                      ctx.beginPath();
+                      ctx.moveTo(kp1.x * canvas.width, kp1.y * canvas.height);
+                      ctx.lineTo(kp2.x * canvas.width, kp2.y * canvas.height);
+                      ctx.stroke();
+                    }
+                  });
+                });
+
+                // Draw info
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
+                ctx.font = 'bold 20px Arial';
+                ctx.fillText(`${hands.length} Hand${hands.length !== 1 ? 's' : ''} Detected ✋`, 20, 40);
               }
+            }
+
+            onDetection?.({
+              detected: true,
+              confidence: Math.max(...hands.map((h: any) =>
+                h.keypoints.reduce((sum: number, k: any) => sum + k.y, 0) / h.keypoints.length
+              )),
+              hands,
+              gesture: hands.length > 0 ? detectGesture(hands[0].keypoints) : 'none',
             });
-          });
-          
-          // Draw info text
-          if (!video || video.readyState !== 4) {
-            ctx.fillStyle = 'rgba(255, 100, 0, 0.8)';
-            ctx.font = '14px Arial';
-            ctx.fillText('Camera not available - showing mock data', 20, canvas.height - 20);
+          } else {
+            onDetection?.({
+              detected: false,
+              confidence: 0,
+              hands: [],
+              gesture: 'none',
+            });
           }
+        } catch (err) {
+          console.error('Hand detection error:', err);
         }
       }
 
-      animationId = requestAnimationFrame(detectHands);
+      animationRef.current = requestAnimationFrame(detectHands);
     };
 
-    animationId = requestAnimationFrame(detectHands);
-    return () => cancelAnimationFrame(animationId);
-  }, [isRunning, isInitialized, showCanvas, onDetection, generateMockHand, detectGesture]);
+    animationRef.current = requestAnimationFrame(detectHands);
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [isRunning, isInitialized, showCanvas, onDetection, detectGesture]);
 
   return (
     <div className="relative w-full h-full">

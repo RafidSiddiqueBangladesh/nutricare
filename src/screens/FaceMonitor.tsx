@@ -31,22 +31,27 @@ export default function FaceMonitor() {
     setIsSaving(true);
     setSaveMessage(null);
     try {
-      const response = await fetch('http://localhost:3001/api/face-analysis', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/health/face-analysis`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('sb_access_token') || ''}`,
+        },
         body: JSON.stringify({
           emotion: faceData.emotion,
           confidence: faceData.confidence,
           timestamp: new Date().toISOString(),
-          landmarks: faceData.landmarks,
+          landmarkCount: faceData.landmarks?.length || 0,
         }),
       });
       if (response.ok) {
         setSaveMessage('✅ Face analysis saved successfully!');
+        setTimeout(() => setSaveMessage(null), 3000);
       } else {
         setSaveMessage('❌ Failed to save face analysis');
       }
     } catch (error) {
+      console.error('Save error:', error);
       setSaveMessage('❌ Error saving face analysis');
     } finally {
       setIsSaving(false);

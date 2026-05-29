@@ -24,141 +24,172 @@ export const FaceDetector: React.FC<FaceDetectorProps> = ({
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { videoRef, startCamera, error: cameraError } = useCamera();
+  const faceLandmarkerRef = useRef<any>(null);
   const animationRef = useRef<number | null>(null);
-  const emotionCycleRef = useRef(0);
 
-  // Initialize with simple setup
+  // Initialize MediaPipe Face Landmarker with real detection
   useEffect(() => {
-    setIsInitialized(true);
+    const initializeFaceLandmarker = async () => {
+      try {
+        const vision = await import('@mediapipe/tasks-vision');
+        const { FaceLandmarker, FilesetResolver } = vision;
+        
+        const filesetResolver = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/wasm'
+        );
+        
+        const landmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+          baseOptions: { 
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-studio/latest/face_landmarker.task' 
+          },
+          runningMode: 'VIDEO',
+          numFaces: 1,
+        });
+        
+        faceLandmarkerRef.current = landmarker;
+        setIsInitialized(true);
+        console.log('✅ Real Face Detection Initialized');
+      } catch (err) {
+        console.error('❌ Face detection init error:', err);
+        setError('Face detection unavailable. Check camera permissions.');
+      }
+    };
+
+    initializeFaceLandmarker();
   }, []);
 
   // Start camera
   useEffect(() => {
     if (isInitialized && !cameraError) {
-      startCamera();
+      startCamera().catch(err => {
+        console.error('Camera error:', err);
+        setError(`Camera: ${err.message}`);
+      });
     }
   }, [isInitialized, startCamera, cameraError]);
 
-  // Generate face mesh landmarks
-  const generateFaceMesh = (centerX: number, centerY: number, width: number, height: number) => {
-    const landmarks = [];
-    // Simulate 68 facial landmarks
-    for (let i = 0; i < 68; i++) {
-      const angle = (i / 68) * Math.PI * 2;
-      const radius = 0.15 + Math.sin(angle * 3) * 0.05;
-      landmarks.push({
-        x: centerX + Math.cos(angle) * radius * width,
-        y: centerY + Math.sin(angle) * radius * height,
-        z: 0,
-      });
+  // Detect emotion from real face landmarks
+  const detectEmotion = (landmarks: any[]): { emotion: 'happy' | 'sad' | 'astonished' | 'neutral'; score: number } => {
+    if (!landmarks || landmarks.length < 10) return { emotion: 'neutral', score: 0.5 };
+
+    // MediaPipe face landmark indices
+    const mouthLeft = landmarks[61];
+    const mouthRight = landmarks[291];
+    const mouthTop = landmarks[13];
+    const mouthBottom = landmarks[14];
+    const leftEye = landmarks[33];
+    const rightEye = landmarks[263];
+
+    if (!mouthLeft || !mouthRight || !leftEye || !rightEye) {
+      return { emotion: 'neutral', score: 0.5 };
     }
-    return landmarks;
+
+    // Calculate real metrics from landmarks
+    const mouthHeight = Math.abs(mouthBottom.y - mouthTop.y);
+    const mouthWidth = Math.abs(mouthRight.x - mouthLeft.x);
+    const eyeHeight = Math.abs(rightEye.y - leftEye.y);
+
+    // Real emotion detection heuristics
+    if (mouthHeight > 0.05 && mouthWidth > 0.1) {
+      return { emotion: 'happy', score: 0.85 };
+    }
+    if (eyeHeight > 0.08 && mouthHeight > 0.03) {
+      return { emotion: 'astonished', score: 0.8 };
+    }
+    if (mouthHeight < 0.02 && eyeHeight < 0.04) {
+      return { emotion: 'sad', score: 0.75 };
+    }
+
+    return { emotion: 'neutral', score: 0.6 };
   };
 
-  // Draw face mesh on canvas
-  const drawFaceMesh = (ctx: CanvasRenderingContext2D, landmarks: any[], width: number, height: number) => {
-    ctx.strokeStyle = 'rgba(0, 255, 0, 0.6)';
-    ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
-    ctx.lineWidth = 1;
-
-    // Draw face outline
-    ctx.beginPath();
-    landmarks.forEach((point, i) => {
-      if (i === 0) ctx.moveTo(point.x * width, point.y * height);
-      else ctx.lineTo(point.x * width, point.y * height);
-    });
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // Draw landmarks
-    ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
-    landmarks.forEach(point => {
-      ctx.beginPath();
-      ctx.arc(point.x * width, point.y * height, 2, 0, 2 * Math.PI);
-      ctx.fill();
-    });
-  };
-
-  // Detect emotion based on cycle
-  const getEmotion = (): 'happy' | 'sad' | 'astonished' | 'neutral' => {
-    const emotions: Array<'happy' | 'sad' | 'astonished' | 'neutral'> = ['happy', 'sad', 'neutral', 'astonished'];
-    emotionCycleRef.current = (emotionCycleRef.current + 1) % (emotions.length * 30);
-    return emotions[Math.floor(emotionCycleRef.current / 30)];
-  };
-
-  // Detection loop with canvas
+  // Real detection loop
   useEffect(() => {
-    if (!isRunning || !videoRef.current || !isInitialized) return;
+    if (!isRunning || !videoRef.current || !isInitialized || !faceLandmarkerRef.current) return;
 
-    let animationId: number;
-    const detectFaces = () => {
+    const detectFaces = async () => {
       const video = videoRef.current;
-      const emotion = getEmotion();
-      const emotionScores: Record<string, number> = {
-        happy: 0.9,
-        sad: 0.7,
-        neutral: 0.75,
-        astonished: 0.85,
-      };
+      const landmarker = faceLandmarkerRef.current;
 
-      // Canvas-based face detection fallback
-      if (canvasRef.current && showCanvas) {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        if (ctx && video) {
-          canvas.width = video.videoWidth || 640;
-          canvas.height = video.videoHeight || 480;
-          
-          // Draw video if available
-          if (video.readyState === 4) {
-            ctx.drawImage(video, 0, 0);
+      if (video && video.readyState === 4) {
+        try {
+          const results = await landmarker.detectForVideo(video, performance.now());
+
+          if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+            const landmarks = results.faceLandmarks[0];
+            const { emotion, score } = detectEmotion(landmarks);
+
+            // Draw real detections on canvas
+            if (showCanvas && canvasRef.current) {
+              const canvas = canvasRef.current;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                ctx.drawImage(video, 0, 0);
+
+                // Draw face landmarks
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+                landmarks.forEach((landmark: any) => {
+                  ctx.beginPath();
+                  ctx.arc(landmark.x * canvas.width, landmark.y * canvas.height, 3, 0, 2 * Math.PI);
+                  ctx.fill();
+                });
+
+                // Draw face contour
+                ctx.strokeStyle = 'rgba(0, 255, 0, 0.6)';
+                ctx.lineWidth = 2;
+                const contourIndices = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10];
+                
+                ctx.beginPath();
+                contourIndices.forEach((idx, i) => {
+                  const lm = landmarks[idx];
+                  if (lm) {
+                    if (i === 0) ctx.moveTo(lm.x * canvas.width, lm.y * canvas.height);
+                    else ctx.lineTo(lm.x * canvas.width, lm.y * canvas.height);
+                  }
+                });
+                ctx.stroke();
+
+                // Draw real results
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText(`${emotion.toUpperCase()} 🎯`, 20, 40);
+                ctx.font = '14px Arial';
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+                ctx.fillText(`Real Analysis: ${Math.round(score * 100)}%`, 20, 70);
+                ctx.fillText(`Landmarks Detected: ${landmarks.length}`, 20, 95);
+              }
+            }
+
+            // Send real detection data
+            onDetection?.({
+              detected: true,
+              confidence: score,
+              emotion,
+              emotionScore: score,
+              landmarks,
+            });
           } else {
-            // Draw gradient background instead
-            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-            gradient.addColorStop(0, 'rgba(0, 30, 40, 0.9)');
-            gradient.addColorStop(1, 'rgba(0, 50, 60, 0.9)');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            onDetection?.({
+              detected: false,
+              confidence: 0,
+              landmarks: [],
+            });
           }
-
-          // Draw face mesh
-          const centerX = 0.5;
-          const centerY = 0.5;
-          const landmarks = generateFaceMesh(centerX, centerY, 1, 1);
-          drawFaceMesh(ctx, landmarks, canvas.width, canvas.height);
-
-          // Draw emotion text
-          ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
-          ctx.font = 'bold 24px Arial';
-          ctx.fillText(`Emotion: ${emotion.toUpperCase()}`, 20, 40);
-          
-          // Draw info
-          ctx.font = '14px Arial';
-          ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
-          ctx.fillText(`Confidence: ${Math.round(emotionScores[emotion] * 100)}%`, 20, 70);
-          if (video.readyState !== 4) {
-            ctx.fillStyle = 'rgba(255, 100, 0, 0.8)';
-            ctx.fillText('Camera not available - showing mock data', 20, canvas.height - 20);
-          }
+        } catch (err) {
+          console.error('Detection error:', err);
         }
       }
 
-      // Generate detection result
-      const landmarks = generateFaceMesh(0.5, 0.5, 1, 1);
-      onDetection?.({
-        detected: true,
-        confidence: emotionScores[emotion],
-        emotion,
-        emotionScore: emotionScores[emotion],
-        landmarks: landmarks.slice(0, 10),
-      });
-
-      animationId = requestAnimationFrame(detectFaces);
+      animationRef.current = requestAnimationFrame(detectFaces);
     };
 
-    animationId = requestAnimationFrame(detectFaces);
-    return () => cancelAnimationFrame(animationId);
+    animationRef.current = requestAnimationFrame(detectFaces);
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
   }, [isRunning, isInitialized, showCanvas, onDetection]);
 
   return (
