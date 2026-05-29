@@ -67,8 +67,8 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
 
         const landmarker = await HandLandmarker.createFromOptions(filesetResolver, {
           baseOptions: {
-            // Use jsDelivr CDN (CORS enabled) instead of Google Storage
-            modelAssetPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/hand_landmarker.task',
+            // Load model from public folder (served from same origin - no CORS)
+            modelAssetPath: '/hand_landmarker.task',
           },
           runningMode: 'VIDEO',
           numHands: maxHands,
