@@ -40,7 +40,8 @@ export const FaceDetector: React.FC<FaceDetectorProps> = ({
         
         const landmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
           baseOptions: { 
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-studio/latest/face_landmarker.task' 
+            // Use jsDelivr CDN (CORS enabled) instead of Google Storage
+            modelAssetPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/face_landmarker.task' 
           },
           runningMode: 'VIDEO',
           numFaces: 1,
