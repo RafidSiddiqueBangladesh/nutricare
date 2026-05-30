@@ -56,9 +56,12 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
 
         await tf.ready();
 
+        const moveNetModelType =
+          poseDetection.movenet?.modelType?.SINGLEPOSE_THUNDER || 'SinglePose.Thunder';
+
         const detector = await poseDetection.createDetector(
           poseDetection.SupportedModels.MoveNet,
-          { modelType: poseDetection.moveNet.modelType.SINGLEPOSE_THUNDER }
+          { modelType: moveNetModelType }
         );
 
         poseDetectorRef.current = detector;
