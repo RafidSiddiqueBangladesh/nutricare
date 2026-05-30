@@ -45,6 +45,16 @@ export interface DetectionResult {
   message?: string;
 }
 
+export interface YouTubeVideoResult {
+  videoId: string;
+  title: string;
+  description: string;
+  thumbnail?: string;
+  channelTitle?: string;
+  publishedAt?: string;
+  url: string;
+}
+
 class APIService {
   private baseURL: string;
 
@@ -183,6 +193,16 @@ Respond with JSON: { detected: boolean, confidence: number, formScore: number, s
       }
     }
     return { success: false, message: 'Exercise detection failed' };
+  }
+
+  async searchYouTubeVideos(query: string, maxResults = 5): Promise<{ success: boolean; data?: YouTubeVideoResult[]; message?: string }> {
+    return this.request('/ai/youtube/search', {
+      method: 'GET',
+      params: {
+        q: query,
+        maxResults,
+      },
+    });
   }
 
   // Nutrition - Parse Voice Transcription

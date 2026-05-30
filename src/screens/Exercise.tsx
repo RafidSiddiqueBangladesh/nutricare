@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dumbbell, Play, CheckCircle, Timer, Camera, Video, Activity, Zap } from 'lucide-react';
+import { Dumbbell, Play, CheckCircle, Video, Activity, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 import { ExerciseLog } from '@/src/types';
@@ -11,22 +11,22 @@ const EXERCISES = [
     id: 'push-ups',
     title: 'Push-ups',
     duration: '5 min',
-    videoUrl: 'https://www.youtube.com/embed/iodm_iO6dM8',
-    thumbnail: 'https://img.youtube.com/vi/iodm_iO6dM8/0.jpg'
+    videoUrl: 'https://www.youtube.com/embed/IODxDxX7oi4',
+    thumbnail: 'https://img.youtube.com/vi/IODxDxX7oi4/0.jpg'
   },
   {
     id: 'squats',
     title: 'Squats',
     duration: '5 min',
-    videoUrl: 'https://www.youtube.com/embed/QKKZ9AGYTi4',
-    thumbnail: 'https://img.youtube.com/vi/QKKZ9AGYTi4/0.jpg'
+    videoUrl: 'https://www.youtube.com/embed/aclHkVaku9U',
+    thumbnail: 'https://img.youtube.com/vi/aclHkVaku9U/0.jpg'
   },
   {
     id: 'jumping-jacks',
     title: 'Jumping Jacks',
     duration: '5 min',
-    videoUrl: 'https://www.youtube.com/embed/1bMSNyunq74',
-    thumbnail: 'https://img.youtube.com/vi/1bMSNyunq74/0.jpg'
+    videoUrl: 'https://www.youtube.com/embed/2W4ZNSwoW_4',
+    thumbnail: 'https://img.youtube.com/vi/2W4ZNSwoW_4/0.jpg'
   }
 ];
 
@@ -62,16 +62,19 @@ export default function Exercise() {
               </div>
             </div>
 
-            <div className="relative aspect-video rounded-2xl overflow-hidden mb-4 group ring-1 ring-white/10">
-              <img src={ex.thumbnail} alt={ex.title} className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-all" />
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                <button className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center text-white shadow-xl hover:scale-110 active:scale-95 transition-all">
-                  <Play size={32} fill="currentColor" />
+            <div className="mb-4 rounded-2xl overflow-hidden ring-1 ring-white/10 bg-gradient-to-br from-teal-500/10 via-cyan-500/5 to-transparent p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs text-white/50 uppercase tracking-wider mb-1">Tutorial</p>
+                  <p className="text-sm font-semibold text-white/80">Open coach for live timer and guide</p>
+                </div>
+                <button
+                  onClick={() => window.open(ex.videoUrl, '_blank', 'noopener,noreferrer')}
+                  className="w-14 h-14 bg-red-600 rounded-full flex items-center justify-center text-white shadow-xl hover:scale-110 active:scale-95 transition-all shrink-0"
+                  aria-label={`Open ${ex.title} video`}
+                >
+                  <Play size={28} fill="currentColor" />
                 </button>
-              </div>
-              <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center text-[10px] text-white font-bold bg-black/60 px-2 py-1 rounded backdrop-blur-sm">
-                <span>Watch on YouTube</span>
-                <Play size={12} fill="currentColor" />
               </div>
             </div>
 

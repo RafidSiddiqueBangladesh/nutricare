@@ -20,6 +20,8 @@ export interface InventoryItem {
   price: number;
   expiryDate: string;
   amountOption: string;
+  quantity?: number;
+  unit?: string;
   addedAt: number;
 }
 
@@ -29,6 +31,8 @@ export interface CostEntry {
   amount: number;
   category: string;
   date: string;
+  source?: 'manual' | 'cooking';
+  note?: string;
 }
 
 export interface HealthMetric {
