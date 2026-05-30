@@ -37,7 +37,6 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
   exerciseType = 'general',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const videoCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [repCount, setRepCount] = useState(0);
@@ -151,21 +150,12 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
             );
 
             // Draw real poses on canvas overlay
-            if (showCanvas && canvasRef.current && videoCanvasRef.current) {
+            if (showCanvas && canvasRef.current) {
               const canvas = canvasRef.current;
-              const videoCanvas = videoCanvasRef.current;
               const ctx = canvas.getContext('2d');
               if (ctx) {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-                videoCanvas.width = video.videoWidth;
-                videoCanvas.height = video.videoHeight;
-
-                // Draw video frame to overlay
-                const videoCtx = videoCanvas.getContext('2d');
-                if (videoCtx) {
-                  videoCtx.drawImage(video, 0, 0);
-                }
 
                 // Draw skeleton on overlay
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -250,11 +240,6 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
 
       {showCanvas && (
         <>
-          <canvas
-            ref={videoCanvasRef}
-            className="absolute top-0 left-0 w-full h-full rounded-lg"
-            style={{ transform: 'scaleX(-1)' }}
-          />
           <canvas
             ref={canvasRef}
             className="absolute top-0 left-0 w-full h-full rounded-lg pointer-events-none"

@@ -35,7 +35,7 @@ export const FaceDetector: React.FC<FaceDetectorProps> = ({
         const { FaceLandmarker, FilesetResolver } = vision;
         
         const filesetResolver = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/wasm'
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/wasm/'
         );
         
         const landmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
@@ -127,8 +127,6 @@ export const FaceDetector: React.FC<FaceDetectorProps> = ({
               if (ctx) {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-
-                ctx.drawImage(video, 0, 0);
 
                 // Draw face landmarks
                 ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';

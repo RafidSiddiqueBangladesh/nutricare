@@ -48,7 +48,6 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
   maxHands = 2,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const videoCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { videoRef, startCamera, error: cameraError } = useCamera();
@@ -65,7 +64,7 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
         const { HandLandmarker, FilesetResolver } = vision;
 
         const filesetResolver = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/wasm'
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/wasm/'
         );
 
         const landmarker = await HandLandmarker.createFromOptions(filesetResolver, {
@@ -201,21 +200,12 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
             setMissingFingers(allMissing);
 
             // Draw real hand detections
-            if (showCanvas && canvasRef.current && videoCanvasRef.current) {
+            if (showCanvas && canvasRef.current) {
               const canvas = canvasRef.current;
-              const videoCanvas = videoCanvasRef.current;
               const ctx = canvas.getContext('2d');
               if (ctx) {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-                videoCanvas.width = video.videoWidth;
-                videoCanvas.height = video.videoHeight;
-
-                // Draw video frame
-                const videoCtx = videoCanvas.getContext('2d');
-                if (videoCtx) {
-                  videoCtx.drawImage(video, 0, 0);
-                }
 
                 // Clear overlay
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -306,11 +296,6 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
 
       {showCanvas && (
         <>
-          <canvas
-            ref={videoCanvasRef}
-            className="absolute top-0 left-0 w-full h-full rounded-lg"
-            style={{ transform: 'scaleX(-1)' }}
-          />
           <canvas
             ref={canvasRef}
             className="absolute top-0 left-0 w-full h-full rounded-lg pointer-events-none"
