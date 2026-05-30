@@ -52,9 +52,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const [isThemeOpen, setIsThemeOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const isImmersiveExerciseRoute =
+    location.pathname.startsWith('/exercises/coach/') || location.pathname === '/exercises/live-editor';
 
   return (
-    <div className="relative min-h-screen pb-24 overflow-hidden">
+    <div className={cn('relative min-h-screen overflow-hidden', isImmersiveExerciseRoute ? 'pb-4' : 'pb-24')}>
       {/* Theme Editor */}
       <ThemeEditor isOpen={isThemeOpen} onClose={() => setIsThemeOpen(false)} />
 
@@ -157,60 +159,64 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Theme FAB */}
-      <button 
-        onClick={() => setIsThemeOpen(true)}
-        className="fixed bottom-32 right-6 p-4 glass-card !rounded-full !p-3 primary-text primary-shadow hover:scale-110 active:scale-95 transition-all z-40"
-        style={{ 
-          background: `hsl(var(--primary-hue), 30%, 15%)`,
-          borderColor: `hsl(var(--primary-hue), 70%, 50%)`
-        }}
-      >
-        <Palette size={24} />
-      </button>
+      {!isImmersiveExerciseRoute && (
+        <>
+          <button 
+            onClick={() => setIsThemeOpen(true)}
+            className="fixed bottom-32 right-6 p-4 glass-card !rounded-full !p-3 primary-text primary-shadow hover:scale-110 active:scale-95 transition-all z-40"
+            style={{ 
+              background: `hsl(var(--primary-hue), 30%, 15%)`,
+              borderColor: `hsl(var(--primary-hue), 70%, 50%)`
+            }}
+          >
+            <Palette size={24} />
+          </button>
 
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md">
-        <div className="glass-card !p-1.5 grid grid-cols-7 gap-1">
-          {NAV_ITEMS.map((item) => {
-            const isActive = isActiveNavItem(location.pathname, item);
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "relative flex flex-col items-center justify-center gap-0.5 px-1 py-2 rounded-xl transition-all duration-300",
-                  isActive ? "scale-[1.03]" : "text-white/60 hover:text-white/90"
-                )}
-              >
-                {isActive && (
-                  <motion.div
-                    layoutId="bottom-nav-active-pill"
-                    className="absolute inset-0 rounded-xl"
-                    style={{
-                      background: `linear-gradient(180deg, hsla(var(--primary-hue), 75%, 62%, 0.28), hsla(var(--primary-hue), 75%, 42%, 0.20))`,
-                      border: `1px solid hsla(var(--primary-hue), 85%, 68%, 0.45)`,
-                      boxShadow: `0 6px 20px hsla(var(--primary-hue), 80%, 45%, 0.25), inset 0 1px 0 hsla(var(--primary-hue), 90%, 90%, 0.22)`,
-                    }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 34, mass: 0.55 }}
-                  />
-                )}
+          {/* Bottom Nav */}
+          <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md">
+            <div className="glass-card !p-1.5 grid grid-cols-7 gap-1">
+              {NAV_ITEMS.map((item) => {
+                const isActive = isActiveNavItem(location.pathname, item);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={cn(
+                      "relative flex flex-col items-center justify-center gap-0.5 px-1 py-2 rounded-xl transition-all duration-300",
+                      isActive ? "scale-[1.03]" : "text-white/60 hover:text-white/90"
+                    )}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="bottom-nav-active-pill"
+                        className="absolute inset-0 rounded-xl"
+                        style={{
+                          background: `linear-gradient(180deg, hsla(var(--primary-hue), 75%, 62%, 0.28), hsla(var(--primary-hue), 75%, 42%, 0.20))`,
+                          border: `1px solid hsla(var(--primary-hue), 85%, 68%, 0.45)`,
+                          boxShadow: `0 6px 20px hsla(var(--primary-hue), 80%, 45%, 0.25), inset 0 1px 0 hsla(var(--primary-hue), 90%, 90%, 0.22)`,
+                        }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 34, mass: 0.55 }}
+                      />
+                    )}
 
-                <span className="relative z-10">
-                  <Icon
-                    size={isActive ? 18 : 17}
-                    strokeWidth={isActive ? 2.6 : 2.2}
-                    color={isActive ? `hsl(var(--primary-hue), 92%, 72%)` : undefined}
-                  />
-                </span>
-                <span className="relative z-10 text-[9px] leading-none uppercase tracking-wide font-bold">
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+                    <span className="relative z-10">
+                      <Icon
+                        size={isActive ? 18 : 17}
+                        strokeWidth={isActive ? 2.6 : 2.2}
+                        color={isActive ? `hsl(var(--primary-hue), 92%, 72%)` : undefined}
+                      />
+                    </span>
+                    <span className="relative z-10 text-[9px] leading-none uppercase tracking-wide font-bold">
+                      {item.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+        </>
+      )}
     </div>
   );
 }
