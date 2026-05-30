@@ -29,10 +29,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  const persistSessionToken = async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+
+      if (accessToken) {
+        localStorage.setItem('sb_access_token', accessToken);
+      } else {
+        localStorage.removeItem('sb_access_token');
+      }
+    } catch {
+      localStorage.removeItem('sb_access_token');
+    }
+  };
+
   // Check if user is already logged in on mount
   useEffect(() => {
     const checkUser = async () => {
       try {
+        await persistSessionToken();
         const { data: { user: supabaseUser } } = await supabase.auth.getUser();
         if (supabaseUser) {
           setUser({
@@ -53,6 +69,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Listen to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.access_token) {
+        localStorage.setItem('sb_access_token', session.access_token);
+      } else {
+        localStorage.removeItem('sb_access_token');
+      }
+
       if (session?.user) {
         setUser({
           id: session.user.id,
@@ -92,6 +114,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (signInError) throw signInError;
 
+      await persistSessionToken();
+
       setUser({
         id: email,
         email,
@@ -115,6 +139,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (signInError) throw signInError;
+
+      await persistSessionToken();
 
       navigate('/nutrition');
     } catch (err: any) {
@@ -147,6 +173,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setError(null);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      localStorage.removeItem('sb_access_token');
       setUser(null);
       navigate('/');
     } catch (err: any) {

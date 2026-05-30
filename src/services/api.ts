@@ -53,6 +53,11 @@ class APIService {
   }
 
   private async getAccessToken(): Promise<string | null> {
+    const storedToken = localStorage.getItem('sb_access_token');
+    if (storedToken) {
+      return storedToken;
+    }
+
     try {
       const { data, error } = await supabase.auth.getSession();
       if (!error && data.session?.access_token) {
@@ -62,7 +67,7 @@ class APIService {
       // Fall back to localStorage for older auth flows.
     }
 
-    return localStorage.getItem('sb_access_token');
+    return null;
   }
 
   private async request<T>(
