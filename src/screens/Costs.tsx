@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Wallet, RefreshCcw, Calendar, Trash2, Plus, PieChart, Filter, Clock3, CalendarDays, CalendarRange } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useLocalStorage } from '@/src/hooks/useLocalStorage';
@@ -288,28 +288,28 @@ export default function Costs() {
       </section>
 
       <section className="grid grid-cols-2 gap-3">
-        <div className="glass-card !p-4">
+        <div className="glass-card p-4 bg-gradient-to-br from-cyan-500/10 via-teal-500/10 to-transparent border border-cyan-400/10">
           <p className="text-xs text-white/60 uppercase font-bold">Selected Range</p>
           <p className="text-xl font-black text-teal-300 mt-1">{formatCurrency(selectedTotal)}</p>
           <p className="text-[11px] text-white/40 mt-1">{selectedLabel}</p>
         </div>
-        <div className="glass-card !p-4">
+        <div className="glass-card p-4 bg-gradient-to-br from-teal-500/10 via-emerald-500/10 to-transparent border border-teal-400/10">
           <p className="text-xs text-white/60 uppercase font-bold">Today</p>
           <p className="text-xl font-black text-teal-300 mt-1">{formatCurrency(todayTotal)}</p>
           <p className="text-[11px] text-white/40 mt-1">Auto + manual</p>
         </div>
-        <div className="glass-card !p-4">
+        <div className="glass-card p-4 bg-gradient-to-br from-emerald-500/10 via-lime-500/10 to-transparent border border-emerald-400/10">
           <p className="text-xs text-white/60 uppercase font-bold">This Week</p>
           <p className="text-xl font-black text-teal-300 mt-1">{formatCurrency(weekTotal)}</p>
         </div>
-        <div className="glass-card !p-4">
+        <div className="glass-card p-4 bg-gradient-to-br from-rose-500/10 via-orange-500/10 to-transparent border border-rose-400/10">
           <p className="text-xs text-white/60 uppercase font-bold">This Month</p>
           <p className="text-xl font-black text-teal-300 mt-1">{formatCurrency(monthTotal)}</p>
           <p className="text-[11px] text-white/40 mt-1">Year: {formatCurrency(yearTotal)}</p>
         </div>
       </section>
 
-      <section className="glass-card bg-teal-500/10">
+      <section className="glass-card bg-gradient-to-br from-teal-500/12 via-cyan-500/10 to-emerald-500/12 border border-teal-400/15">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-teal-400 text-xs font-bold uppercase tracking-wider">Daily Breakdown</h3>
           <span className="text-[11px] text-white/45">{baseFilteredEntries.length} entries</span>
@@ -376,7 +376,7 @@ export default function Costs() {
         </div>
 
         {baseFilteredEntries.length === 0 ? (
-          <div className="glass-card !bg-white/5 text-center py-8 text-sm opacity-50 italic">No entries for selected range.</div>
+          <div className="glass-card bg-white/5 text-center py-8 text-sm opacity-50 italic">No entries for selected range.</div>
         ) : (
           <div className="flex flex-col gap-2">
             {baseFilteredEntries.map((entry) => (
@@ -384,7 +384,7 @@ export default function Costs() {
                 key={entry.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="glass-card !p-4 flex items-start justify-between gap-3"
+                className="glass-card p-4 flex items-start justify-between gap-3 bg-white/6 border border-white/8 hover:border-teal-400/20 transition-colors"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1">
