@@ -91,7 +91,7 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
 
   // Start camera
   useEffect(() => {
-    if (isInitialized && !cameraError) {
+    if (!cameraError) {
       startCamera().catch(err => {
         console.error('Camera error:', err);
         setError(`Camera: ${err.message}`);
@@ -329,15 +329,21 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
         <p className="text-green-400 font-bold text-sm">✋ Hands Detected</p>
       </div>
 
+      {!isInitialized && !error && (
+        <div className="absolute top-4 left-4 bg-teal-500/80 px-3 py-1.5 rounded-md z-20">
+          <p className="text-teal-950 font-semibold text-xs">Loading hand model...</p>
+        </div>
+      )}
+
       {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg z-20">
-          <p className="text-red-400 text-sm text-center px-4">{error}</p>
+        <div className="absolute top-4 left-4 bg-red-500/90 px-3 py-1.5 rounded-md z-20">
+          <p className="text-red-950 text-xs font-semibold">{error}</p>
         </div>
       )}
 
       {cameraError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg z-20">
-          <p className="text-red-400 text-sm text-center px-4">{cameraError}</p>
+        <div className="absolute top-4 left-4 bg-red-500/90 px-3 py-1.5 rounded-md z-20">
+          <p className="text-red-950 text-xs font-semibold">{cameraError}</p>
         </div>
       )}
     </div>

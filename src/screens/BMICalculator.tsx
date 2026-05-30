@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 import { HealthMetric } from '@/src/types';
 import { cn } from '@/src/lib/utils';
+import { appendHealthResult } from '@/src/lib/healthResults';
 
 export default function BMICalculator() {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ export default function BMICalculator() {
     else category = 'Obese';
 
     setResult({ bmi, category });
+    const timestampIso = new Date().toISOString();
     
     const newLog: HealthMetric = {
       id: crypto.randomUUID(),
@@ -34,6 +36,18 @@ export default function BMICalculator() {
       timestamp: Date.now()
     };
     setLogs([newLog, ...logs]);
+
+    appendHealthResult({
+      id: crypto.randomUUID(),
+      type: 'bmi',
+      timestamp: timestampIso,
+      data: {
+        bmi,
+        category,
+        weight: w,
+        height: parseFloat(height),
+      },
+    });
   };
 
   return (

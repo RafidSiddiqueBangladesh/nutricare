@@ -4,6 +4,7 @@ import { ChevronLeft, Hand } from 'lucide-react';
 import HandDetector, { HandDetectionResult } from '@/src/components/HandDetector';
 import { motion } from 'motion/react';
 import { API_BASE_URL } from '@/src/services/api';
+import { appendHealthResult } from '@/src/lib/healthResults';
 
 export default function HandMonitor() {
   const navigate = useNavigate();
@@ -16,7 +17,18 @@ export default function HandMonitor() {
     if (!handData) return;
     setIsSaving(true);
     setSaveMessage(null);
+    const timestamp = new Date().toISOString();
     try {
+      appendHealthResult({
+        id: crypto.randomUUID(),
+        type: 'hand',
+        timestamp,
+        data: {
+          confidence: handData.confidence,
+          gesture: handData.gesture || 'none',
+        },
+      });
+
       const response = await fetch(`${API_BASE_URL}/exercise/hand-analysis`, {
         method: 'POST',
         headers: { 
@@ -27,7 +39,7 @@ export default function HandMonitor() {
           gesture: handData.gesture,
           handsDetected: handData.hands?.length || 0,
           confidence: handData.confidence,
-          timestamp: new Date().toISOString(),
+          timestamp,
           handedness: handData.hands?.map((h: any) => h.label),
         }),
       });

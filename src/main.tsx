@@ -32,6 +32,7 @@ import PoseMonitor from './screens/PoseMonitor';
 import HandMonitor from './screens/HandMonitor';
 import LiveExerciseEditor from './screens/LiveExerciseEditor';
 import HealthResultsHistory from './screens/HealthResultsHistory';
+import Profile from './screens/Profile';
 import './index.css';
 
 function AppRoutes() {
@@ -220,6 +221,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <Costs />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Profile />
             </Layout>
           </ProtectedRoute>
         }

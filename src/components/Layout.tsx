@@ -4,6 +4,7 @@ import {
   Utensils, 
   Dumbbell, 
   ShieldAlert, 
+  Activity,
   ChefHat, 
   Wallet,
   ChevronDown,
@@ -18,12 +19,32 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { ThemeEditor } from './ThemeEditor';
 
 const NAV_ITEMS = [
-  { path: '/nutrition', icon: Utensils, label: 'Nutrition' },
-  { path: '/exercises', icon: Dumbbell, label: 'Exercise' },
-  { path: '/health', icon: ShieldAlert, label: 'Health' },
-  { path: '/cooking', icon: ChefHat, label: 'Cooking' },
-  { path: '/costs', icon: Wallet, label: 'Cost' },
+  { path: '/nutrition', icon: Utensils, label: 'Nutrition', matchPrefixes: ['/nutrition'] },
+  { path: '/exercises', icon: Dumbbell, label: 'Exercise', matchPrefixes: ['/exercises'] },
+  { path: '/health', icon: ShieldAlert, label: 'Health', matchPrefixes: ['/health'], excludePrefixes: ['/health/tracking', '/health/monitor'] },
+  { path: '/profile', icon: User, label: 'Profile', matchPrefixes: ['/profile'] },
+  { path: '/health/tracking', icon: Activity, label: 'Live', matchPrefixes: ['/health/tracking', '/health/monitor'] },
+  { path: '/cooking', icon: ChefHat, label: 'Cooking', matchPrefixes: ['/cooking'] },
+  { path: '/costs', icon: Wallet, label: 'Cost', matchPrefixes: ['/costs'] },
 ];
+
+const isActiveNavItem = (
+  pathname: string,
+  item: {
+    path: string;
+    matchPrefixes?: string[];
+    excludePrefixes?: string[];
+  }
+) => {
+  const include = item.matchPrefixes && item.matchPrefixes.length > 0
+    ? item.matchPrefixes
+    : [item.path];
+  const exclude = item.excludePrefixes || [];
+
+  const matched = include.some((prefix) => pathname.startsWith(prefix));
+  const excluded = exclude.some((prefix) => pathname.startsWith(prefix));
+  return matched && !excluded;
+};
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -64,13 +85,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Header */}
       <header className="relative z-10 px-6 pt-6 flex justify-between items-center sticky top-0 bg-transparent">
         <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-4 py-2 flex items-center gap-2">
-          {NAV_ITEMS.find(item => location.pathname.startsWith(item.path))?.icon && (
+          {NAV_ITEMS.find(item => isActiveNavItem(location.pathname, item))?.icon && (
             <div className="primary-color p-1 rounded-full text-slate-950">
-              {React.createElement(NAV_ITEMS.find(item => location.pathname.startsWith(item.path))!.icon, { size: 16 })}
+              {React.createElement(NAV_ITEMS.find(item => isActiveNavItem(location.pathname, item))!.icon, { size: 16 })}
             </div>
           )}
           <span className="font-medium text-sm primary-text">
-            {NAV_ITEMS.find(item => location.pathname.startsWith(item.path))?.label || 'LifeSync AI'}
+            {NAV_ITEMS.find(item => isActiveNavItem(location.pathname, item))?.label || 'LifeSync AI'}
           </span>
           <div className="w-1.5 h-1.5 rounded-full primary-color" />
         </div>
@@ -149,16 +170,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Bottom Nav */}
       <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md">
-        <div className="glass-card !p-2 flex items-center justify-around gap-1">
+        <div className="glass-card !p-2 flex items-center gap-1 overflow-x-auto">
           {NAV_ITEMS.map((item) => {
-            const isActive = location.pathname.startsWith(item.path);
+            const isActive = isActiveNavItem(location.pathname, item);
             const Icon = item.icon;
             return (
               <Link
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex flex-col items-center gap-1 p-2 rounded-2xl transition-all duration-300 flex-1",
+                  "flex flex-col items-center gap-1 p-2 rounded-2xl transition-all duration-300 min-w-[68px]",
                   isActive ? "scale-105" : "text-white/60 hover:text-white hover:bg-white/5"
                 )}
                 style={isActive ? {

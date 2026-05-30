@@ -4,6 +4,7 @@ import { ChevronLeft, Smile, Download } from 'lucide-react';
 import FaceDetector, { FaceDetectionResult } from '@/src/components/FaceDetector';
 import { motion } from 'motion/react';
 import { API_BASE_URL } from '@/src/services/api';
+import { appendHealthResult } from '@/src/lib/healthResults';
 
 export default function FaceMonitor() {
   const navigate = useNavigate();
@@ -31,7 +32,18 @@ export default function FaceMonitor() {
     if (!faceData) return;
     setIsSaving(true);
     setSaveMessage(null);
+    const timestamp = new Date().toISOString();
     try {
+      appendHealthResult({
+        id: crypto.randomUUID(),
+        type: 'face',
+        timestamp,
+        data: {
+          confidence: faceData.confidence,
+          emotion: faceData.emotion,
+        },
+      });
+
       const response = await fetch(`${API_BASE_URL}/health/face-analysis`, {
         method: 'POST',
         headers: { 
@@ -41,7 +53,7 @@ export default function FaceMonitor() {
         body: JSON.stringify({
           emotion: faceData.emotion,
           confidence: faceData.confidence,
-          timestamp: new Date().toISOString(),
+          timestamp,
           landmarkCount: faceData.landmarks?.length || 0,
         }),
       });

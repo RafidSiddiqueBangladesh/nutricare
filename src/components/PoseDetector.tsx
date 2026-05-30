@@ -267,24 +267,21 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
         <p className="text-green-400 font-bold text-sm">💪 Reps: {repCount}</p>
       </div>
 
-      {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg z-20">
-          <p className="text-red-400 text-sm text-center px-4">{error}</p>
+      {!isInitialized && !error && (
+        <div className="absolute top-4 left-4 bg-teal-500/80 px-3 py-1.5 rounded-md z-20">
+          <p className="text-teal-950 font-semibold text-xs">Loading pose model...</p>
         </div>
       )}
-      {/* Show model-loading overlay while detector initializes */}
-      {!isInitialized && !error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg z-20">
-          <div className="text-center text-white/80">
-            <div className="mb-2 animate-pulse">Loading detection model…</div>
-            <div className="text-xs">This may take a few seconds on first load.</div>
-          </div>
+
+      {error && (
+        <div className="absolute top-4 left-4 bg-red-500/90 px-3 py-1.5 rounded-md z-20">
+          <p className="text-red-950 text-xs font-semibold">{error}</p>
         </div>
       )}
 
       {cameraError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg z-20">
-          <p className="text-red-400 text-sm text-center px-4">{cameraError}</p>
+        <div className="absolute top-4 left-4 bg-red-500/90 px-3 py-1.5 rounded-md z-20">
+          <p className="text-red-950 text-xs font-semibold">{cameraError}</p>
         </div>
       )}
     </div>

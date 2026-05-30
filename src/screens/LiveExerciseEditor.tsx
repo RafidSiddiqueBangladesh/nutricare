@@ -5,6 +5,7 @@ import { ChevronLeft, Play, Pause, Save, RotateCcw, Zap, TrendingUp } from 'luci
 import { cn } from '@/src/lib/utils';
 import PoseDetector, { PoseDetectionResult } from '@/src/components/PoseDetector';
 import { useLocalStorage } from '@/src/hooks/useLocalStorage';
+import { appendHealthResult } from '@/src/lib/healthResults';
 
 interface ExerciseSession {
   id: string;
@@ -99,6 +100,18 @@ export default function LiveExerciseEditor() {
     try {
       // Save to local storage
       setSessions([...sessions, newSession]);
+      appendHealthResult({
+        id: crypto.randomUUID(),
+        type: 'pose',
+        timestamp: newSession.timestamp,
+        data: {
+          confidence: poseData?.confidence || 0,
+          repCount: currentReps,
+          formScore: currentFormScore,
+          exerciseType: selectedExercise,
+          duration: elapsedTime,
+        },
+      });
 
       // Try to save to backend
       const token = localStorage.getItem('auth_token');

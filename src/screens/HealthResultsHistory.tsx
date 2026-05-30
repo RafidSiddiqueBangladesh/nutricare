@@ -7,28 +7,47 @@ import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 
 interface HealthResult {
   id: string;
-  type: 'face' | 'pose' | 'hand';
+  type: 'face' | 'pose' | 'hand' | 'bmi';
   timestamp: string;
   data: {
     emotion?: string;
     repCount?: number;
     formScore?: number;
     gesture?: string;
-    confidence: number;
+    confidence?: number;
     exerciseType?: string;
     duration?: number;
+    bmi?: number;
+    category?: string;
+    weight?: number;
+    height?: number;
   };
 }
 
 export default function HealthResultsHistory() {
   const navigate = useNavigate();
   const [results, setResults] = useLocalStorage<HealthResult[]>('health-results', []);
+  const [bmiLogs] = useLocalStorage<any[]>('health-metrics', []);
   const [filteredResults, setFilteredResults] = useState<HealthResult[]>(results);
-  const [filterType, setFilterType] = useState<'all' | 'face' | 'pose' | 'hand'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'face' | 'pose' | 'hand' | 'bmi'>('all');
   const [searchDate, setSearchDate] = useState('');
 
   useEffect(() => {
-    let filtered = [...results];
+    const legacyBmiResults: HealthResult[] = (bmiLogs || [])
+      .filter((log) => log?.type === 'bmi' && log?.value)
+      .map((log) => ({
+        id: `legacy-bmi-${log.id || log.timestamp}`,
+        type: 'bmi' as const,
+        timestamp: new Date(log.timestamp).toISOString(),
+        data: {
+          bmi: Number(log.value.bmi),
+          category: log.value.category,
+          weight: Number(log.value.weight),
+          height: Number(log.value.height),
+        },
+      }));
+
+    let filtered = [...results, ...legacyBmiResults];
 
     if (filterType !== 'all') {
       filtered = filtered.filter(r => r.type === filterType);
@@ -41,7 +60,7 @@ export default function HealthResultsHistory() {
     setFilteredResults(filtered.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     ));
-  }, [results, filterType, searchDate]);
+  }, [results, bmiLogs, filterType, searchDate]);
 
   const deleteResult = (id: string) => {
     if (confirm('Delete this result?')) {
@@ -71,6 +90,7 @@ export default function HealthResultsHistory() {
       case 'face': return '😊';
       case 'pose': return '💪';
       case 'hand': return '✋';
+      case 'bmi': return '⚖️';
       default: return '📊';
     }
   };
@@ -80,6 +100,7 @@ export default function HealthResultsHistory() {
       case 'face': return 'Face Detection';
       case 'pose': return 'Exercise Tracking';
       case 'hand': return 'Hand Gesture';
+      case 'bmi': return 'BMI Record';
       default: return 'Unknown';
     }
   };
@@ -89,6 +110,7 @@ export default function HealthResultsHistory() {
     face: results.filter(r => r.type === 'face').length,
     pose: results.filter(r => r.type === 'pose').length,
     hand: results.filter(r => r.type === 'hand').length,
+    bmi: results.filter(r => r.type === 'bmi').length,
   };
 
   const totalReps = results
@@ -102,6 +124,15 @@ export default function HealthResultsHistory() {
         results.filter(r => r.type === 'pose').length
       )
     : 0;
+
+  const avgBmi = results.filter(r => r.type === 'bmi' && typeof r.data.bmi === 'number').length > 0
+    ? (
+        results
+          .filter(r => r.type === 'bmi' && typeof r.data.bmi === 'number')
+          .reduce((sum, r) => sum + (r.data.bmi || 0), 0) /
+        results.filter(r => r.type === 'bmi' && typeof r.data.bmi === 'number').length
+      ).toFixed(2)
+    : '0.00';
 
   return (
     <div className="flex flex-col gap-6 pb-24">
@@ -174,6 +205,7 @@ export default function HealthResultsHistory() {
             { type: 'pose', label: 'Exercise Tracking', count: stats.pose, color: 'from-teal-600 to-teal-400' },
             { type: 'face', label: 'Face Detection', count: stats.face, color: 'from-blue-600 to-blue-400' },
             { type: 'hand', label: 'Hand Gesture', count: stats.hand, color: 'from-purple-600 to-purple-400' },
+            { type: 'bmi', label: 'BMI Records', count: stats.bmi, color: 'from-rose-600 to-rose-400' },
           ].map(cat => (
             <div key={cat.type} className="flex items-center gap-3">
               <div className={cn(
@@ -197,7 +229,7 @@ export default function HealthResultsHistory() {
           <div>
             <p className="text-xs text-white/60 mb-2">Type</p>
             <div className="flex gap-2">
-              {(['all', 'pose', 'face', 'hand'] as const).map(type => (
+              {(['all', 'pose', 'face', 'hand', 'bmi'] as const).map(type => (
                 <motion.button
                   key={type}
                   whileHover={{ scale: 1.05 }}
@@ -302,6 +334,12 @@ export default function HealthResultsHistory() {
                     {result.type === 'hand' && (
                       <p className="text-sm font-bold text-purple-400 capitalize">{result.data.gesture}</p>
                     )}
+                    {result.type === 'bmi' && (
+                      <>
+                        <p className="text-sm font-bold text-rose-400">BMI {typeof result.data.bmi === 'number' ? result.data.bmi.toFixed(2) : '--'}</p>
+                        <p className="text-xs text-white/60">{result.data.category || 'Uncategorized'}</p>
+                      </>
+                    )}
 
                     <motion.button
                       whileHover={{ scale: 1.2 }}
@@ -340,6 +378,12 @@ export default function HealthResultsHistory() {
               <div className="flex justify-between">
                 <span className="text-white/60">Face Detections:</span>
                 <span className="font-bold text-blue-400">{filteredResults.filter(r => r.type === 'face').length}</span>
+              </div>
+            )}
+            {filteredResults.some(r => r.type === 'bmi') && (
+              <div className="flex justify-between">
+                <span className="text-white/60">Average BMI:</span>
+                <span className="font-bold text-rose-400">{avgBmi}</span>
               </div>
             )}
           </div>

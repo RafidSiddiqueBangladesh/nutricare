@@ -4,6 +4,7 @@ import { ChevronLeft, User } from 'lucide-react';
 import PoseDetector, { PoseDetectionResult } from '@/src/components/PoseDetector';
 import { motion } from 'motion/react';
 import { API_BASE_URL } from '@/src/services/api';
+import { appendHealthResult } from '@/src/lib/healthResults';
 
 export default function PoseMonitor() {
   const navigate = useNavigate();
@@ -16,7 +17,20 @@ export default function PoseMonitor() {
     if (!poseData) return;
     setIsSaving(true);
     setSaveMessage(null);
+    const timestamp = new Date().toISOString();
     try {
+      appendHealthResult({
+        id: crypto.randomUUID(),
+        type: 'pose',
+        timestamp,
+        data: {
+          confidence: poseData.confidence,
+          repCount: poseData.repCount || 0,
+          formScore: poseData.formScore || 0,
+          exerciseType: poseData.exerciseType || 'general',
+        },
+      });
+
       const response = await fetch(`${API_BASE_URL}/exercise/pose-analysis`, {
         method: 'POST',
         headers: { 
@@ -27,7 +41,7 @@ export default function PoseMonitor() {
           repCount: poseData.repCount || 0,
           formScore: poseData.formScore || 0,
           confidence: poseData.confidence,
-          timestamp: new Date().toISOString(),
+          timestamp,
           exerciseType: poseData.exerciseType,
           keypointCount: poseData.keypoints?.length || 0,
         }),
