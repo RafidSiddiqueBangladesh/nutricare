@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_SERVER_URL = process.env.VITE_API_URL || 'http://localhost:5000';
+const SOCKET_SERVER_URL =
+  import.meta.env.VITE_SOCKET_SERVER_URL?.trim() ||
+  'https://nutricarebackend-2zfq.onrender.com';
 
 export interface RTCConfig {
   iceServers: Array<{ urls: string[] }>;

@@ -1,5 +1,9 @@
 // API Service for backend communication
-const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:5000/api';
+import { supabase } from '@/src/services/supabase';
+
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL?.trim() ||
+  'https://nutricarebackend-2zfq.onrender.com/api';
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean>;
@@ -48,12 +52,25 @@ class APIService {
     this.baseURL = baseURL;
   }
 
+  private async getAccessToken(): Promise<string | null> {
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (!error && data.session?.access_token) {
+        return data.session.access_token;
+      }
+    } catch {
+      // Fall back to localStorage for older auth flows.
+    }
+
+    return localStorage.getItem('sb_access_token');
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestOptions = {}
   ): Promise<T> {
     const { params, ...fetchOptions } = options;
-    const accessToken = localStorage.getItem('sb_access_token');
+    const accessToken = await this.getAccessToken();
 
     let url = `${this.baseURL}${endpoint}`;
 
@@ -179,7 +196,7 @@ Respond with JSON: { detected: boolean, confidence: number, formScore: number, s
   async processNutritionImage(imageFile: File) {
     const formData = new FormData();
     formData.append('image', imageFile);
-    const accessToken = localStorage.getItem('sb_access_token');
+    const accessToken = await this.getAccessToken();
 
     try {
       const response = await fetch(`${this.baseURL}/nutrition/ocr`, {
