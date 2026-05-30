@@ -137,8 +137,13 @@ export default function Nutrition() {
       }
     } catch (error) {
       console.error('OCR error:', error);
+      const apiError = error as Error & { status?: number };
       setStatusType('error');
-      setStatusMessage('Failed to process image');
+      setStatusMessage(
+        apiError.status === 401
+          ? 'Please sign in to use OCR scanning.'
+          : 'Failed to process image'
+      );
     } finally {
       setIsProcessing(false);
       setProcessingStatus('idle');

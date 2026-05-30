@@ -98,7 +98,11 @@ class APIService {
         const error = await response.json().catch(() => ({
           message: `HTTP ${response.status}`,
         }));
-        throw new Error(error.message || 'API request failed');
+        const apiError = new Error(error.message || 'API request failed') as Error & {
+          status?: number;
+        };
+        apiError.status = response.status;
+        throw apiError;
       }
 
       return await response.json();
@@ -210,7 +214,11 @@ Respond with JSON: { detected: boolean, confidence: number, formScore: number, s
         const error = await response.json().catch(() => ({
           message: `HTTP ${response.status}`,
         }));
-        throw new Error(error.message || 'OCR request failed');
+        const apiError = new Error(error.message || 'OCR request failed') as Error & {
+          status?: number;
+        };
+        apiError.status = response.status;
+        throw apiError;
       }
 
       return await response.json();
