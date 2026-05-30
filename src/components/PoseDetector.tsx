@@ -56,8 +56,9 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
 
         await tf.ready();
 
+        // Prefer the smaller/faster MoveNet Lightning model for real-time tracking.
         const moveNetModelType =
-          poseDetection.movenet?.modelType?.SINGLEPOSE_THUNDER || 'SinglePose.Thunder';
+          poseDetection.movenet?.modelType?.SINGLEPOSE_LIGHTNING || 'SinglePose.Lightning';
 
         const detector = await poseDetection.createDetector(
           poseDetection.SupportedModels.MoveNet,
@@ -78,7 +79,8 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
 
   // Start camera
   useEffect(() => {
-    if (isInitialized && !cameraError) {
+    // Start camera immediately so the user sees a preview while models load.
+    if (!cameraError) {
       startCamera().catch(err => {
         console.error('Camera error:', err);
         setError(`Camera: ${err.message}`);
@@ -268,6 +270,15 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg z-20">
           <p className="text-red-400 text-sm text-center px-4">{error}</p>
+        </div>
+      )}
+      {/* Show model-loading overlay while detector initializes */}
+      {!isInitialized && !error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg z-20">
+          <div className="text-center text-white/80">
+            <div className="mb-2 animate-pulse">Loading detection model…</div>
+            <div className="text-xs">This may take a few seconds on first load.</div>
+          </div>
         </div>
       )}
 
