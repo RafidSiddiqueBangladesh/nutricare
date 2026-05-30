@@ -387,7 +387,7 @@ export default function Nutrition() {
       <section className="glass-card">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="primary-color" size={20} />
-          <h2 className="text-xl font-bold">AI-Powered Daily Routine</h2>
+          <h2 className="text-2xl font-black leading-tight">AI-Powered Daily Routine</h2>
         </div>
 
         <div className="space-y-3">
@@ -404,12 +404,12 @@ export default function Nutrition() {
               transition={{ delay: i * 0.1 }}
               className="p-4 bg-white/5 rounded-2xl border border-white/5 flex gap-4 items-center"
             >
-              <span className="primary-color/30 primary-text px-3 py-1 rounded-full text-[10px] font-black uppercase">
+              <span className="primary-color/30 primary-text px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide">
                 {item.tag}
               </span>
               <div>
-                <h4 className="font-bold text-sm">{item.title}</h4>
-                <p className="text-xs text-white/60">{item.desc}</p>
+                <h4 className="font-bold text-base leading-snug">{item.title}</h4>
+                <p className="text-sm text-white/65 leading-relaxed">{item.desc}</p>
               </div>
             </motion.div>
           ))}
@@ -420,7 +420,7 @@ export default function Nutrition() {
       <section className="glass-card">
         <div className="flex items-center gap-2 mb-4">
           <Activity className="primary-color" size={20} />
-          <h2 className="text-xl font-bold">Smart Alternatives</h2>
+          <h2 className="text-2xl font-black leading-tight">Smart Alternatives</h2>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -430,13 +430,13 @@ export default function Nutrition() {
             { instead: 'Limited variety in meals', try: 'Include tomatoes.', benefit: 'Adds vitamins and antioxidants.' },
           ].map((item, i) => (
             <div key={i} className="p-4 bg-white/5 rounded-2xl border border-white/5">
-              <p className="text-[10px] mb-2">
-                <span className="font-bold opacity-100">Instead Of:</span> <span className="opacity-60">{item.instead}</span>
+              <p className="text-sm mb-2 leading-relaxed">
+                <span className="font-black opacity-100">Instead Of:</span> <span className="opacity-70">{item.instead}</span>
               </p>
-              <p className="text-[10px] mb-2">
-                <span className="font-bold opacity-100">Try:</span> <span className="opacity-60">{item.try}</span>
+              <p className="text-sm mb-2 leading-relaxed">
+                <span className="font-black opacity-100">Try:</span> <span className="opacity-70">{item.try}</span>
               </p>
-              <p className="text-[10px] primary-text/80 italic">{item.benefit}</p>
+              <p className="text-sm primary-text/85 italic leading-relaxed">{item.benefit}</p>
             </div>
           ))}
         </div>
