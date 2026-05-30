@@ -30,6 +30,8 @@ import VideoCall from './screens/VideoCall';
 import FaceMonitor from './screens/FaceMonitor';
 import PoseMonitor from './screens/PoseMonitor';
 import HandMonitor from './screens/HandMonitor';
+import LiveExerciseEditor from './screens/LiveExerciseEditor';
+import HealthResultsHistory from './screens/HealthResultsHistory';
 import './index.css';
 
 function AppRoutes() {
@@ -68,6 +70,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <ExerciseCoach />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/exercises/live-editor"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <LiveExerciseEditor />
             </Layout>
           </ProtectedRoute>
         }
@@ -117,7 +129,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Layout>
-              <AnalysisHistory />
+              <HealthResultsHistory />
             </Layout>
           </ProtectedRoute>
         }

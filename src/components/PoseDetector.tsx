@@ -37,6 +37,7 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
   exerciseType = 'general',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [repCount, setRepCount] = useState(0);
@@ -44,6 +45,7 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
   const { videoRef, startCamera, error: cameraError } = useCamera();
   const poseDetectorRef = useRef<any>(null);
   const animationRef = useRef<number | null>(null);
+  const lastDetectionRef = useRef<number>(0);
 
   // Initialize real TensorFlow Pose Detection
   useEffect(() => {
@@ -105,11 +107,19 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
     return 0;
   }, []);
 
-  // Real detection loop
+  // Real detection loop with throttling
   useEffect(() => {
     if (!isRunning || !videoRef.current || !isInitialized || !poseDetectorRef.current) return;
 
     const detectPose = async () => {
+      const now = Date.now();
+      // Throttle to 15 FPS for performance (every 67ms)
+      if (now - lastDetectionRef.current < 67) {
+        animationRef.current = requestAnimationFrame(detectPose);
+        return;
+      }
+      lastDetectionRef.current = now;
+
       const video = videoRef.current;
       const detector = poseDetectorRef.current;
 
@@ -135,22 +145,32 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
               (keypoints.filter(k => k.score > 0.3).length / keypoints.length) * 100
             );
 
-            // Draw real poses on canvas
-            if (showCanvas && canvasRef.current) {
+            // Draw real poses on canvas overlay
+            if (showCanvas && canvasRef.current && videoCanvasRef.current) {
               const canvas = canvasRef.current;
+              const videoCanvas = videoCanvasRef.current;
               const ctx = canvas.getContext('2d');
               if (ctx) {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
+                videoCanvas.width = video.videoWidth;
+                videoCanvas.height = video.videoHeight;
 
-                ctx.drawImage(video, 0, 0);
+                // Draw video frame to overlay
+                const videoCtx = videoCanvas.getContext('2d');
+                if (videoCtx) {
+                  videoCtx.drawImage(video, 0, 0);
+                }
+
+                // Draw skeleton on overlay
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 // Draw keypoints
                 ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
                 keypoints.forEach(kp => {
                   if (kp.score > 0.3) {
                     ctx.beginPath();
-                    ctx.arc(kp.x * canvas.width, kp.y * canvas.height, 6, 0, 2 * Math.PI);
+                    ctx.arc(kp.x * canvas.width, kp.y * canvas.height, 8, 0, 2 * Math.PI);
                     ctx.fill();
                   }
                 });
@@ -171,11 +191,12 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
 
                 // Draw real results
                 ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
-                ctx.font = 'bold 24px Arial';
-                ctx.fillText(`Reps: ${repCount} 💪`, 20, 40);
-                ctx.font = '14px Arial';
-                ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
-                ctx.fillText(`Form: ${formScore}% | Confidence: ${Math.round(Math.max(...keypoints.map(k => k.score)) * 100)}%`, 20, 70);
+                ctx.font = 'bold 28px Arial';
+                ctx.fillText(`💪 Reps: ${repCount}`, 20, 50);
+                ctx.font = '16px Arial';
+                ctx.fillStyle = 'rgba(100, 255, 100, 0.9)';
+                const maxConf = Math.max(...keypoints.map(k => k.score));
+                ctx.fillText(`Form: ${formScore}% | Confidence: ${Math.round(maxConf * 100)}%`, 20, 80);
               }
             }
 
@@ -209,7 +230,7 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [isRunning, isInitialized, showCanvas, onDetection, countReps, repCount, exerciseType]);
+  }, [isRunning, isInitialized, showCanvas, onDetection, countReps, repCount, exerciseType];
 
   return (
     <div className="relative w-full h-full">
@@ -218,30 +239,37 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
         autoPlay
         playsInline
         muted
-        className="w-full h-full object-cover rounded-lg"
+        className="w-full h-full object-cover rounded-lg absolute"
         style={{ transform: 'scaleX(-1)' }}
       />
 
       {showCanvas && (
-        <canvas
-          ref={canvasRef}
-          className="absolute top-0 left-0 w-full h-full rounded-lg"
-          style={{ transform: 'scaleX(-1)' }}
-        />
+        <>
+          <canvas
+            ref={videoCanvasRef}
+            className="absolute top-0 left-0 w-full h-full rounded-lg"
+            style={{ transform: 'scaleX(-1)' }}
+          />
+          <canvas
+            ref={canvasRef}
+            className="absolute top-0 left-0 w-full h-full rounded-lg pointer-events-none"
+            style={{ transform: 'scaleX(-1)' }}
+          />
+        </>
       )}
 
-      <div className="absolute top-4 right-4 bg-black/60 px-3 py-2 rounded-lg">
-        <p className="text-green-400 font-bold text-sm">Reps: {repCount}</p>
+      <div className="absolute top-4 right-4 bg-black/60 px-3 py-2 rounded-lg z-10">
+        <p className="text-green-400 font-bold text-sm">💪 Reps: {repCount}</p>
       </div>
 
       {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg z-20">
           <p className="text-red-400 text-sm text-center px-4">{error}</p>
         </div>
       )}
 
       {cameraError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg z-20">
           <p className="text-red-400 text-sm text-center px-4">{cameraError}</p>
         </div>
       )}

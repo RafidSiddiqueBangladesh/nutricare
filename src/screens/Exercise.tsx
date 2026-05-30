@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dumbbell, Play, CheckCircle, Timer, Camera, Video, Activity } from 'lucide-react';
+import { Dumbbell, Play, CheckCircle, Timer, Camera, Video, Activity, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 import { ExerciseLog } from '@/src/types';
@@ -90,6 +90,26 @@ export default function Exercise() {
             </div>
           </motion.div>
         ))}
+
+        {/* Live Exercise Editor Button */}
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: EXERCISES.length * 0.1 }}
+          onClick={() => navigate('/exercises/live-editor')}
+          className="glass-card !p-4 border-2 border-teal-500/50 hover:border-teal-400 transition-all"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="text-3xl">⚡</div>
+              <div className="text-left">
+                <h3 className="font-bold text-teal-400">Live Exercise Editor</h3>
+                <p className="text-[10px] text-white/60">Track any exercise with real-time rep counter</p>
+              </div>
+            </div>
+            <Zap className="text-teal-400" size={24} />
+          </div>
+        </motion.button>
       </div>
     </div>
   );

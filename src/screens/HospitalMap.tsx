@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Hospital, Search, Map as MapIcon, Phone, Globe, Navigation, Heart } from 'lucide-react';
+import { ChevronLeft, Hospital, Search, Map as MapIcon, Phone, Globe, Navigation, Heart, MapPin, AlertCircle, Pill, Ambulance, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { HOSPITALS_64, MEDICINE_SHOPS_64, AMBULANCES_64 } from '@/src/data/facilitiesData';
 
 // Fix for default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -15,20 +16,16 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Real hospitals in Bangladesh with actual coordinates
-const REAL_HOSPITALS = [
-  { id: 1, name: 'Bangladesh Medical College Hospital', district: 'Dhaka', division: 'Dhaka', totalDoctors: 250, phone: '+880-2-9666588', lat: 23.8103, lng: 90.4441, website: 'www.bmch.edu.bd' },
-  { id: 2, name: 'Bangabandhu Sheikh Mujib Medical University', district: 'Dhaka', division: 'Dhaka', totalDoctors: 400, phone: '+880-2-9661900', lat: 23.8059, lng: 90.4471, website: 'www.bsmmu.edu.bd' },
-  { id: 3, name: 'National Hospital (Mirpur)', district: 'Dhaka', division: 'Dhaka', totalDoctors: 200, phone: '+880-2-8000021', lat: 23.8230, lng: 90.3627, website: 'www.national-hospital.com.bd' },
-  { id: 4, name: 'Apollo Hospitals Dhaka', district: 'Dhaka', division: 'Dhaka', totalDoctors: 350, phone: '+880-2-9666222', lat: 23.8200, lng: 90.4300, website: 'www.apollohospitals.com' },
-  { id: 5, name: 'Evercare Hospital Dhaka', district: 'Dhaka', division: 'Dhaka', totalDoctors: 180, phone: '+880-2-8158000', lat: 23.7960, lng: 90.4139, website: 'www.evercarebd.com' },
-  { id: 6, name: 'Square Hospitals Limited', district: 'Dhaka', division: 'Dhaka', totalDoctors: 220, phone: '+880-2-8159999', lat: 23.8146, lng: 90.4227, website: 'www.squarehospitals.com' },
-  { id: 7, name: 'Labaid Specialized Hospital', district: 'Dhaka', division: 'Dhaka', totalDoctors: 160, phone: '+880-2-8113991', lat: 23.8038, lng: 90.4186, website: 'www.labaidgroup.com' },
-  { id: 8, name: 'United Hospital Limited', district: 'Dhaka', division: 'Dhaka', totalDoctors: 190, phone: '+880-2-8833334', lat: 23.7883, lng: 90.4061, website: 'www.unitedhospitalbd.com' },
-  { id: 9, name: 'Dhaka Medical College Hospital', district: 'Dhaka', division: 'Dhaka', totalDoctors: 280, phone: '+880-2-9661051', lat: 23.7329, lng: 90.3627, website: 'www.dmch.gov.bd' },
-  { id: 10, name: 'Sir Salimullah Medical College Hospital', district: 'Dhaka', division: 'Dhaka', totalDoctors: 150, phone: '+880-2-9364000', lat: 23.7641, lng: 90.3561, website: 'www.ssmch.gov.bd' },
-  { id: 11, name: 'Chittagong Medical College Hospital', district: 'Chittagong', division: 'Chittagong', totalDoctors: 200, phone: '+880-31-619149', lat: 22.3475, lng: 91.8123, website: 'www.cmch.gov.bd' },
-  { id: 12, name: 'Khulna Medical College Hospital', district: 'Khulna', division: 'Khulna', totalDoctors: 140, phone: '+880-41-817181', lat: 22.8456, lng: 89.5648, website: 'www.kmch.gov.bd' },
+// District list for all 64 districts of Bangladesh
+const ALL_DISTRICTS = [
+  'Dhaka', 'Narayanganj', 'Gazipur', 'Tangail', 'Manikganj', 'Munshiganj', 'Kishoreganj', 'Shariatpur', 'Rajbari',
+  'Chattogram', 'Comilla', 'Noakhali', 'Cox\'s Bazar', 'Khagrachari', 'Rangamati', 'Feni', 'Chandpur', 'Bandarban',
+  'Khulna', 'Jessore', 'Satkhira', 'Bagerhat', 'Magura', 'Narail', 'Chuadanga', 'Pirojpur', 'Jhenaidah',
+  'Rajshahi', 'Pabna', 'Bogra', 'Naogaon', 'Natore', 'Nawabganj', 'Chapainawabganj',
+  'Barishal', 'Bhola', 'Jhalokati', 'Patuakhali', 'Barguna',
+  'Sylhet', 'Moulvibazar', 'Sunamganj', 'Habiganj',
+  'Rangpur', 'Dinajpur', 'Thakurgaon', 'Nilphamari', 'Lalmonirhat', 'Gaibandha', 'Kurigram', 'Panchagarh',
+  'Mymensingh', 'Jashore'
 ];
 
 export default function HospitalMap() {
@@ -37,43 +34,138 @@ export default function HospitalMap() {
   const [selected, setSelected] = useState<any>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([23.8103, 90.4441]);
   const [mapZoom, setMapZoom] = useState(11);
+  const [activeTab, setActiveTab] = useState<'hospital' | 'medicine' | 'ambulance'>('hospital');
+  const [userLocation, setUserLocation] = useState<string | null>(null);
+  const [requestingLocation, setRequestingLocation] = useState(false);
+  const [showDistrictSelector, setShowDistrictSelector] = useState(false);
 
-  // Filter hospitals based on search
-  const filteredHospitals = REAL_HOSPITALS.filter(h => 
-    h.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    h.district.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Get current data based on active tab
+  const getData = () => {
+    switch(activeTab) {
+      case 'medicine':
+        return MEDICINE_SHOPS_64;
+      case 'ambulance':
+        return AMBULANCES_64;
+      default:
+        return HOSPITALS_64;
+    }
+  };
 
-  // Create custom icon for markers
-  const createHospitalIcon = (isSelected: boolean = false) => {
+  const allData = getData();
+
+  // Filter based on search and user location
+  const filteredData = allData.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.district.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesLocation = !userLocation || item.district === userLocation;
+    return matchesSearch && matchesLocation;
+  });
+
+  // Request user location
+  const [showDistrictSelector, setShowDistrictSelector] = useState(false);
+
+  // Request user location
+  const requestLocation = () => {
+    setRequestingLocation(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          // For now, default to Dhaka area
+          setMapCenter([position.coords.latitude, position.coords.longitude]);
+          setMapZoom(13);
+          setRequestingLocation(false);
+        },
+        () => {
+          // If denied, show district selector
+          setShowDistrictSelector(true);
+          setRequestingLocation(false);
+        }
+      );
+    }
+  };
+
+  // Request user location
+  const requestLocation = () => {
+    setRequestingLocation(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          // For now, default to Dhaka area
+          setMapCenter([position.coords.latitude, position.coords.longitude]);
+          setMapZoom(13);
+          setRequestingLocation(false);
+        },
+        () => {
+          // If denied, show district selector
+          setShowDistrictSelector(true);
+          setRequestingLocation(false);
+        }
+      );
+    }
+  };
+
+  const getTabIcon = () => {
+    switch(activeTab) {
+      case 'medicine':
+        return <Pill size={16} />;
+      case 'ambulance':
+        return <Ambulance size={16} />;
+      default:
+        return <Hospital size={16} />;
+    }
+  };
+
+  const getTabLabel = () => {
+    switch(activeTab) {
+      case 'medicine':
+        return 'Medicine & Pharmacies';
+      case 'ambulance':
+        return 'Ambulance Services';
+      default:
+        return 'Hospital Locations';
+    }
+  };
+
+  const createMarkerIcon = (type: string, isSelected: boolean = false) => {
+    let emoji = '🏥';
+    let color = '#f43f5e';
+    if (type === 'medicine') {
+      emoji = '💊';
+      color = '#06b6d4';
+    } else if (type === 'ambulance') {
+      emoji = '🚑';
+      color = '#f59e0b';
+    }
+    if (isSelected) color = '#ef4444';
+
     return L.divIcon({
-      className: 'custom-hospital-marker',
+      className: 'custom-marker',
       html: `
         <div style="
-          background: ${isSelected ? '#ef4444' : '#f43f5e'};
-          width: 32px;
-          height: 32px;
+          background: ${color};
+          width: 36px;
+          height: 36px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
           border: 3px solid white;
           box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          font-size: 18px;
+          font-size: 20px;
         ">
-          🏥
+          ${emoji}
         </div>
       `,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -16],
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+      popupAnchor: [0, -18],
     });
   };
 
-  const handleHospitalClick = (hospital: any) => {
-    setSelected(hospital);
-    setMapCenter([hospital.lat, hospital.lng]);
-    setMapZoom(13);
+  const handleItemClick = (item: any) => {
+    setSelected(item);
+    setMapCenter([item.lat, item.lng]);
+    setMapZoom(14);
   };
 
   return (
@@ -84,35 +176,133 @@ export default function HospitalMap() {
         </button>
         <div className="flex-1 flex justify-center">
           <div className="bg-teal-500/10 border border-teal-500/20 rounded-full px-4 py-1 flex items-center gap-2 text-teal-400">
-            <Hospital size={14} />
-            <span className="text-xs font-bold uppercase tracking-wider">Real Hospital Map</span>
+            <MapPin size={14} />
+            <span className="text-xs font-bold uppercase tracking-wider">Find Nearest Facility</span>
             <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
           </div>
         </div>
       </div>
 
+      {/* Category Tabs */}
+      <div className="flex gap-3">
+        {(['hospital', 'medicine', 'ambulance'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => {
+              setActiveTab(tab);
+              setSelected(null);
+              setSearchTerm('');
+            }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs transition-all",
+              activeTab === tab
+                ? "bg-teal-500 text-teal-950"
+                : "glass-card hover:bg-white/20"
+            )}
+          >
+            {tab === 'hospital' && <Hospital size={16} />}
+            {tab === 'medicine' && <Pill size={16} />}
+            {tab === 'ambulance' && <Ambulance size={16} />}
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Search & Location */}
       <section className="glass-card flex flex-col gap-4 border-rose-400/20">
         <div className="flex gap-4">
           <div className="bg-rose-400/20 p-2 rounded-lg text-rose-400 self-start">
             <Heart size={20} fill="currentColor" />
           </div>
           <div>
-            <h3 className="text-sm font-bold">Interactive map with real hospital locations</h3>
-            <p className="text-[10px] text-white/40 mt-1">Showing {filteredHospitals.length} hospitals across Bangladesh. Click any marker to view details.</p>
+            <h3 className="text-sm font-bold">Find {getTabLabel().split('&')[0].trim().toLowerCase()}</h3>
+            <p className="text-[10px] text-white/40 mt-1">Search by name or district, or get your current location</p>
           </div>
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search by hospital name or district" 
-            className="glass-input w-full pl-10"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={18} />
+            <input 
+              type="text" 
+              placeholder="Search by name or district" 
+              className="glass-input w-full pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={requestLocation}
+            disabled={requestingLocation}
+            className="glass-card px-4 py-3 hover:bg-white/20 transition-all disabled:opacity-50 flex items-center gap-2"
+          >
+            <MapPin size={18} />
+            <span className="text-xs font-bold">{requestingLocation ? 'Locating...' : 'My Location'}</span>
+          </button>
         </div>
+        {userLocation && (
+          <div className="text-xs text-teal-400 flex items-center gap-2">
+            <AlertCircle size={14} />
+            Showing facilities in: <strong>{userLocation}</strong>
+            <button
+              onClick={() => setUserLocation(null)}
+              className="text-white/50 hover:text-white ml-2"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* District Selector Modal */}
+        <AnimatePresence>
+          {showDistrictSelector && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center"
+              onClick={() => setShowDistrictSelector(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.9 }}
+                onClick={(e) => e.stopPropagation()}
+                className="glass-card !p-6 max-w-md w-[90%] max-h-[80vh] overflow-y-auto"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold">Select Your District</h3>
+                  <button
+                    onClick={() => setShowDistrictSelector(false)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-all"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                <p className="text-sm text-white/60 mb-4">Choose from all 64 districts of Bangladesh</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {ALL_DISTRICTS.map(district => (
+                    <motion.button
+                      key={district}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        setUserLocation(district);
+                        setShowDistrictSelector(false);
+                        setSelected(null);
+                      }}
+                      className="py-2 px-3 rounded-lg bg-teal-500/20 hover:bg-teal-500/30 text-teal-400 text-sm font-bold transition-all text-center"
+                    >
+                      {district}
+                    </motion.button>
+                  ))}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
 
+      {/* Map */}
       <section className="aspect-square bg-[#002b2b] rounded-3xl relative overflow-hidden ring-1 ring-white/10 shadow-2xl">
         <MapContainer 
           center={mapCenter} 
@@ -121,23 +311,23 @@ export default function HospitalMap() {
           zoomControl={true}
         >
           <TileLayer
-            attribution='&copy; OpenStreetMap contributors'
+            attribution='&copy; OpenStreetMap'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           
-          {filteredHospitals.map((hospital) => (
+          {filteredData.map((item) => (
             <Marker
-              key={hospital.id}
-              position={[hospital.lat, hospital.lng]}
-              icon={createHospitalIcon(selected?.id === hospital.id)}
+              key={item.id}
+              position={[item.lat, item.lng]}
+              icon={createMarkerIcon(activeTab, selected?.id === item.id)}
               eventHandlers={{
-                click: () => handleHospitalClick(hospital),
+                click: () => handleItemClick(item),
               }}
             >
               <Popup>
                 <div className="p-2">
-                  <h4 className="font-bold text-sm">{hospital.name}</h4>
-                  <p className="text-xs text-gray-600">{hospital.district}</p>
+                  <h4 className="font-bold text-sm">{item.name}</h4>
+                  <p className="text-xs text-gray-600">{item.district}</p>
                 </div>
               </Popup>
             </Marker>
@@ -145,35 +335,45 @@ export default function HospitalMap() {
         </MapContainer>
       </section>
 
+      {/* List */}
       <div className="flex flex-col gap-3 pb-8">
         <div className="text-sm font-bold text-white/60">
-          Showing {filteredHospitals.length} hospital{filteredHospitals.length !== 1 ? 's' : ''}
+          Showing {filteredData.length} {activeTab} {filteredData.length !== 1 ? 's' : ''}
         </div>
-        {filteredHospitals.map((h) => (
+        {filteredData.slice(0, 10).map((item) => (
           <motion.div 
-            key={h.id}
-            onClick={() => handleHospitalClick(h)}
-            className={cn("glass-card !p-4 flex items-center justify-between cursor-pointer transition-all", selected?.id === h.id ? "bg-rose-500/20 border-rose-500/40" : "hover:bg-white/10")}
+            key={item.id}
+            onClick={() => handleItemClick(item)}
+            className={cn("glass-card !p-4 flex items-center justify-between cursor-pointer transition-all", selected?.id === item.id ? "bg-rose-500/20 border-rose-500/40" : "hover:bg-white/10")}
           >
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-rose-500/20 rounded-full flex items-center justify-center text-rose-500 ring-1 ring-rose-500/20">
-                <Heart size={20} fill="currentColor" />
+              <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-xl ring-1",
+                activeTab === 'hospital' ? "bg-rose-500/20 text-rose-500 ring-rose-500/20" :
+                activeTab === 'medicine' ? "bg-cyan-500/20 text-cyan-400 ring-cyan-500/20" :
+                "bg-amber-500/20 text-amber-400 ring-amber-500/20"
+              )}>
+                {activeTab === 'hospital' && '🏥'}
+                {activeTab === 'medicine' && '💊'}
+                {activeTab === 'ambulance' && '🚑'}
               </div>
               <div>
-                <h4 className="font-bold text-sm leading-tight max-w-[200px]">{h.name}</h4>
-                <p className="text-[10px] text-white/40 mt-1 uppercase font-bold">{h.district}</p>
-                <p className="text-[10px] text-white/60 leading-tight mt-0.5">👨‍⚕️ {h.totalDoctors} Doctors • {h.division}</p>
+                <h4 className="font-bold text-sm leading-tight max-w-[200px]">{item.name}</h4>
+                <p className="text-[10px] text-white/40 mt-1 uppercase font-bold">{item.district}</p>
+                <p className="text-[10px] text-white/60 leading-tight mt-0.5">
+                  {activeTab === 'hospital' && `👨‍⚕️ ${item.totalDoctors} Doctors`}
+                  {activeTab === 'medicine' && `💊 ${(item as any).medicines?.slice(0,2).join(', ') || 'Medicines'}`}
+                  {activeTab === 'ambulance' && `🚑 ${(item as any).availability || '24/7'}`}
+                </p>
               </div>
             </div>
             <div className="flex gap-2">
-              <MapIcon size={18} className="text-white/40 hover:text-teal-400 transition-colors" />
               <Phone size={18} className="text-white/40 hover:text-teal-400 transition-colors" />
             </div>
           </motion.div>
         ))}
       </div>
 
-      {/* Selected Hospital Modal Overlay */}
+      {/* Details Modal - 50% Screen Width */}
       <AnimatePresence>
         {selected && (
           <>
@@ -182,35 +382,79 @@ export default function HospitalMap() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelected(null)}
-              className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm"
+              className="facility-modal-overlay fixed inset-0 bg-black/60 backdrop-blur-sm"
             />
             <motion.div 
-              initial={{ opacity: 0, y: 100 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 100 }}
-              className="fixed bottom-0 left-0 right-0 z-[120] glass-card !rounded-t-3xl !rounded-b-none p-6 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] border-t border-white/20"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="facility-modal-content glass-card shadow-2xl border border-white/20"
             >
-              <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6" />
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-rose-500 rounded-2xl flex items-center justify-center text-white text-xl">
-                  🏥
+              <button
+                onClick={() => setSelected(null)}
+                className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-full transition-all z-50"
+              >
+                <X size={24} />
+              </button>
+
+              <div className="flex items-start gap-6 mb-8">
+                <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center text-4xl ring-2",
+                  activeTab === 'hospital' ? "bg-rose-500/20 ring-rose-500/40" :
+                  activeTab === 'medicine' ? "bg-cyan-500/20 ring-cyan-500/40" :
+                  "bg-amber-500/20 ring-amber-500/40"
+                )}>
+                  {activeTab === 'hospital' && '🏥'}
+                  {activeTab === 'medicine' && '💊'}
+                  {activeTab === 'ambulance' && '🚑'}
                 </div>
-                <h3 className="text-xl font-black">{selected.name}</h3>
+                <div>
+                  <h2 className="text-2xl font-black mb-2">{selected.name}</h2>
+                  <p className="text-white/60 text-sm">{selected.district}, {selected.division}</p>
+                </div>
               </div>
-              
-              <div className="space-y-3 mb-8">
-                <DetailRow label="Phone" value={selected.phone} />
-                <DetailRow label="District" value={selected.district} />
-                <DetailRow label="Division" value={selected.division} />
-                <DetailRow label="Website" value={selected.website} isLink />
-                <DetailRow label="Total Doctors" value={selected.totalDoctors} />
-                <DetailRow label="Coordinates" value={`${selected.lat.toFixed(4)}, ${selected.lng.toFixed(4)}`} />
+
+              <div className="grid grid-cols-2 gap-4 mb-8 pb-8 border-b border-white/10">
+                {activeTab === 'hospital' && (
+                  <>
+                    <DetailRow label="Phone" value={selected.phone} />
+                    <DetailRow label="Doctors" value={selected.totalDoctors} />
+                    <DetailRow label="Website" value={selected.website} isLink />
+                    <DetailRow label="Coordinates" value={`${selected.lat.toFixed(4)}, ${selected.lng.toFixed(4)}`} />
+                  </>
+                )}
+                {activeTab === 'medicine' && (
+                  <>
+                    <DetailRow label="Owner" value={selected.owner} />
+                    <DetailRow label="Phone" value={selected.phone} />
+                    <DetailRow label="Hours" value={selected.hours} />
+                    <DetailRow label="Available Medicines" value={selected.medicines?.join(', ') || 'Various'} />
+                  </>
+                )}
+                {activeTab === 'ambulance' && (
+                  <>
+                    <DetailRow label="Operator" value={selected.operator} />
+                    <DetailRow label="Phone" value={selected.phone} />
+                    <DetailRow label="Availability" value={selected.availability} />
+                    <DetailRow label="Equipment" value={selected.equipment} />
+                  </>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <ActionButton icon={Phone} label="Call" color="bg-teal-400" href={`tel:${selected.phone}`} />
-                <ActionButton icon={Globe} label="Website" color="bg-teal-400" href={`https://${selected.website}`} target="_blank" />
-                <ActionButton icon={Navigation} label="View Map" color="bg-teal-400" onClick={() => {}} />
+                <a href={`tel:${selected.phone}`} className="flex-1 min-w-[100px] py-3 px-4 rounded-full font-bold text-sm flex items-center justify-center gap-2 bg-teal-400 text-teal-950 hover:opacity-90 transition-opacity">
+                  <Phone size={16} />
+                  Call
+                </a>
+                {activeTab === 'hospital' && (
+                  <a href={`https://${selected.website}`} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-[100px] py-3 px-4 rounded-full font-bold text-sm flex items-center justify-center gap-2 bg-teal-400/50 text-white hover:bg-teal-400/70 transition-all">
+                    <Globe size={16} />
+                    Website
+                  </a>
+                )}
+                <button className="flex-1 min-w-[100px] py-3 px-4 rounded-full font-bold text-sm flex items-center justify-center gap-2 bg-teal-400/30 text-white hover:bg-teal-400/50 transition-all">
+                  <Navigation size={16} />
+                  View Map
+                </button>
               </div>
             </motion.div>
           </>
@@ -221,34 +465,21 @@ export default function HospitalMap() {
 }
 
 function DetailRow({ label, value, isLink }: { label: string, value: any, isLink?: boolean }) {
-  return (
-    <div className="text-sm">
-      <span className="font-bold text-white/40">{label}: </span>
-      {isLink ? (
-        <a href={`https://${value}`} target="_blank" rel="noopener noreferrer" className="text-teal-400 underline hover:text-teal-300">
+  if (isLink) {
+    return (
+      <div>
+        <p className="text-[10px] font-bold text-white/40 uppercase mb-1">{label}</p>
+        <a href={`https://${value}`} target="_blank" rel="noopener noreferrer" className="text-teal-400 text-sm hover:underline break-all">
           {value}
         </a>
-      ) : (
-        <span className="text-white/80">{value}</span>
-      )}
-    </div>
-  );
-}
-
-function ActionButton({ icon: Icon, label, color, href, target, onClick }: { icon: any, label: string, color: string, href?: string, target?: string, onClick?: () => void }) {
-  if (href) {
-    return (
-      <a href={href} target={target} rel="noopener noreferrer" className={cn("flex-1 min-w-[100px] py-2 px-4 rounded-full font-bold text-xs flex items-center justify-center gap-2 text-teal-950 hover:opacity-90 transition-opacity", color)}>
-        <Icon size={14} />
-        {label}
-      </a>
+      </div>
     );
   }
 
   return (
-    <button onClick={onClick} className={cn("flex-1 min-w-[100px] py-2 px-4 rounded-full font-bold text-xs flex items-center justify-center gap-2 text-teal-950 hover:opacity-90 transition-opacity", color)}>
-      <Icon size={14} />
-      {label}
-    </button>
+    <div>
+      <p className="text-[10px] font-bold text-white/40 uppercase mb-1">{label}</p>
+      <p className="text-white/80 text-sm">{value}</p>
+    </div>
   );
 }
