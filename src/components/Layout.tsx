@@ -170,7 +170,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Bottom Nav */}
       <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md">
-        <div className="glass-card !p-2 flex items-center gap-1 overflow-x-auto">
+        <div className="glass-card !p-1.5 grid grid-cols-7 gap-1">
           {NAV_ITEMS.map((item) => {
             const isActive = isActiveNavItem(location.pathname, item);
             const Icon = item.icon;
@@ -179,16 +179,33 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex flex-col items-center gap-1 p-2 rounded-2xl transition-all duration-300 min-w-[68px]",
-                  isActive ? "scale-105" : "text-white/60 hover:text-white hover:bg-white/5"
+                  "relative flex flex-col items-center justify-center gap-0.5 px-1 py-2 rounded-xl transition-all duration-300",
+                  isActive ? "scale-[1.03]" : "text-white/60 hover:text-white/90"
                 )}
-                style={isActive ? {
-                  background: `hsl(var(--primary-hue), 30%, 20%)`,
-                  color: `hsl(var(--primary-hue), 90%, 65%)`,
-                } : undefined}
               >
-                <Icon size={isActive ? 22 : 20} strokeWidth={isActive ? 2.5 : 2} />
-                <span className="text-[10px] uppercase tracking-wider font-bold">{item.label}</span>
+                {isActive && (
+                  <motion.div
+                    layoutId="bottom-nav-active-pill"
+                    className="absolute inset-0 rounded-xl"
+                    style={{
+                      background: `linear-gradient(180deg, hsla(var(--primary-hue), 75%, 62%, 0.28), hsla(var(--primary-hue), 75%, 42%, 0.20))`,
+                      border: `1px solid hsla(var(--primary-hue), 85%, 68%, 0.45)`,
+                      boxShadow: `0 6px 20px hsla(var(--primary-hue), 80%, 45%, 0.25), inset 0 1px 0 hsla(var(--primary-hue), 90%, 90%, 0.22)`,
+                    }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 34, mass: 0.55 }}
+                  />
+                )}
+
+                <span className="relative z-10">
+                  <Icon
+                    size={isActive ? 18 : 17}
+                    strokeWidth={isActive ? 2.6 : 2.2}
+                    color={isActive ? `hsl(var(--primary-hue), 92%, 72%)` : undefined}
+                  />
+                </span>
+                <span className="relative z-10 text-[9px] leading-none uppercase tracking-wide font-bold">
+                  {item.label}
+                </span>
               </Link>
             );
           })}
