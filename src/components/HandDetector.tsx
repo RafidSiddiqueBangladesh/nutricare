@@ -345,20 +345,3 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
 };
 
 export default HandDetector;
-
-      {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
-          <p className="text-red-400 text-sm text-center px-4">{error}</p>
-        </div>
-      )}
-
-      {cameraError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
-          <p className="text-red-400 text-sm text-center px-4">{cameraError}</p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default HandDetector;

@@ -230,7 +230,7 @@ export const PoseDetector: React.FC<PoseDetectorProps> = ({
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [isRunning, isInitialized, showCanvas, onDetection, countReps, repCount, exerciseType];
+  }, [isRunning, isInitialized, showCanvas, onDetection, countReps, repCount, exerciseType]);
 
   return (
     <div className="relative w-full h-full">

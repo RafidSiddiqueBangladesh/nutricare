@@ -62,29 +62,6 @@ export default function HospitalMap() {
   });
 
   // Request user location
-  const [showDistrictSelector, setShowDistrictSelector] = useState(false);
-
-  // Request user location
-  const requestLocation = () => {
-    setRequestingLocation(true);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          // For now, default to Dhaka area
-          setMapCenter([position.coords.latitude, position.coords.longitude]);
-          setMapZoom(13);
-          setRequestingLocation(false);
-        },
-        () => {
-          // If denied, show district selector
-          setShowDistrictSelector(true);
-          setRequestingLocation(false);
-        }
-      );
-    }
-  };
-
-  // Request user location
   const requestLocation = () => {
     setRequestingLocation(true);
     if (navigator.geolocation) {
