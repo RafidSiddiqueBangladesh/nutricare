@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/src/services/supabase';
+import { API_BASE_URL } from '@/src/services/api';
 
 interface User {
   id: string;
@@ -44,6 +45,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const syncBackendAuth = async (sessionToken?: string | null) => {
+    const accessToken = sessionToken || (await supabase.auth.getSession()).data.session?.access_token;
+
+    if (!accessToken) {
+      return;
+    }
+
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser(accessToken);
+    if (!supabaseUser) {
+      return;
+    }
+
+    await fetch(`${API_BASE_URL}/auth/supabase-login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        accessToken,
+        name: supabaseUser.user_metadata?.name || supabaseUser.user_metadata?.full_name || '',
+        avatar: supabaseUser.user_metadata?.avatar_url || '',
+      }),
+    });
+  };
+
   // Check if user is already logged in on mount
   useEffect(() => {
     const checkUser = async () => {
@@ -73,6 +100,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.setItem('sb_access_token', session.access_token);
       } else {
         localStorage.removeItem('sb_access_token');
+      }
+
+      if (session?.access_token) {
+        syncBackendAuth(session.access_token).catch((syncError) => {
+          console.error('Backend auth sync failed:', syncError);
+        });
       }
 
       if (session?.user) {
@@ -115,6 +148,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (signInError) throw signInError;
 
       await persistSessionToken();
+      await syncBackendAuth();
 
       setUser({
         id: email,
@@ -141,6 +175,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (signInError) throw signInError;
 
       await persistSessionToken();
+      await syncBackendAuth();
 
       navigate('/nutrition');
     } catch (err: any) {
@@ -174,6 +209,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       localStorage.removeItem('sb_access_token');
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      }).catch(() => {});
       setUser(null);
       navigate('/');
     } catch (err: any) {
