@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Smile, Download } from 'lucide-react';
 import FaceDetector, { FaceDetectionResult } from '@/src/components/FaceDetector';
 import { motion } from 'motion/react';
+import { API_BASE_URL } from '@/src/services/api';
 
 export default function FaceMonitor() {
   const navigate = useNavigate();
@@ -31,7 +32,7 @@ export default function FaceMonitor() {
     setIsSaving(true);
     setSaveMessage(null);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/health/face-analysis`, {
+      const response = await fetch(`${API_BASE_URL}/health/face-analysis`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

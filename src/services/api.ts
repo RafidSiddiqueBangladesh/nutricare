@@ -1,7 +1,7 @@
 // API Service for backend communication
 import { supabase } from '@/src/services/supabase';
 
-const API_BASE_URL =
+export const API_BASE_URL =
   import.meta.env.VITE_API_URL?.trim() ||
   'https://nutricarebackend-2zfq.onrender.com/api';
 

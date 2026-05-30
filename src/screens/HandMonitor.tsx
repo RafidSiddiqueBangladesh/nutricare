@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Hand } from 'lucide-react';
 import HandDetector, { HandDetectionResult } from '@/src/components/HandDetector';
 import { motion } from 'motion/react';
+import { API_BASE_URL } from '@/src/services/api';
 
 export default function HandMonitor() {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ export default function HandMonitor() {
     setIsSaving(true);
     setSaveMessage(null);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/exercise/hand-analysis`, {
+      const response = await fetch(`${API_BASE_URL}/exercise/hand-analysis`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

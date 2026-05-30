@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, User } from 'lucide-react';
 import PoseDetector, { PoseDetectionResult } from '@/src/components/PoseDetector';
 import { motion } from 'motion/react';
+import { API_BASE_URL } from '@/src/services/api';
 
 export default function PoseMonitor() {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ export default function PoseMonitor() {
     setIsSaving(true);
     setSaveMessage(null);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/exercise/pose-analysis`, {
+      const response = await fetch(`${API_BASE_URL}/exercise/pose-analysis`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
