@@ -64,7 +64,7 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
         const { HandLandmarker, FilesetResolver } = vision;
 
         const filesetResolver = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.9/wasm/'
+          '/tasks-vision/wasm/'
         );
 
         const landmarker = await HandLandmarker.createFromOptions(filesetResolver, {

@@ -19,6 +19,15 @@ export const useCamera = (options: MediaStreamOptions = { video: true }) => {
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        try {
+          // Some browsers require an explicit play() call after setting srcObject
+          // to show the preview immediately.
+          // Ignore play errors (autoplay policies) since video elements elsewhere are muted.
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          videoRef.current.play();
+        } catch (playErr) {
+          console.warn('Video play() failed or delayed:', playErr);
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to access camera';
