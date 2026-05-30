@@ -53,6 +53,7 @@ class APIService {
     options: RequestOptions = {}
   ): Promise<T> {
     const { params, ...fetchOptions } = options;
+    const accessToken = localStorage.getItem('sb_access_token');
 
     let url = `${this.baseURL}${endpoint}`;
 
@@ -69,6 +70,7 @@ class APIService {
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           ...fetchOptions.headers,
         },
         credentials: 'include',
@@ -177,11 +179,13 @@ Respond with JSON: { detected: boolean, confidence: number, formScore: number, s
   async processNutritionImage(imageFile: File) {
     const formData = new FormData();
     formData.append('image', imageFile);
+    const accessToken = localStorage.getItem('sb_access_token');
 
     try {
       const response = await fetch(`${this.baseURL}/nutrition/ocr`, {
         method: 'POST',
         body: formData,
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
         credentials: 'include',
       });
 
