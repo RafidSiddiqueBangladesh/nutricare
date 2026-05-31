@@ -10,8 +10,14 @@ export const useCamera = (options: MediaStreamOptions = { video: true }) => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const isStartingRef = useRef(false);
 
   const startCamera = useCallback(async () => {
+    if (stream || isStartingRef.current) {
+      return;
+    }
+
+    isStartingRef.current = true;
     setIsLoading(true);
     setError(null);
     try {
@@ -20,13 +26,11 @@ export const useCamera = (options: MediaStreamOptions = { video: true }) => {
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         try {
-          // Some browsers require an explicit play() call after setting srcObject
-          // to show the preview immediately.
-          // Ignore play errors (autoplay policies) since video elements elsewhere are muted.
-          // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          videoRef.current.play();
+          await videoRef.current.play();
         } catch (playErr) {
-          console.warn('Video play() failed or delayed:', playErr);
+          if (!(playErr instanceof DOMException && playErr.name === 'AbortError')) {
+            console.warn('Video play() failed or delayed:', playErr);
+          }
         }
       }
     } catch (err) {
@@ -34,9 +38,10 @@ export const useCamera = (options: MediaStreamOptions = { video: true }) => {
       setError(errorMessage);
       console.error('Camera access error:', err);
     } finally {
+      isStartingRef.current = false;
       setIsLoading(false);
     }
-  }, [options]);
+  }, [options, stream]);
 
   const stopCamera = useCallback(() => {
     if (stream) {
