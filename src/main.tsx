@@ -30,6 +30,7 @@ import VideoCall from './screens/VideoCall';
 import FaceMonitor from './screens/FaceMonitor';
 import PoseMonitor from './screens/PoseMonitor';
 import HandMonitor from './screens/HandMonitor';
+import VitalLensMonitor from './screens/VitalLensMonitor';
 import LiveExerciseEditor from './screens/LiveExerciseEditor';
 import HealthResultsHistory from './screens/HealthResultsHistory';
 import Profile from './screens/Profile';
@@ -191,6 +192,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <HandMonitor />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/monitor/vitals"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <VitalLensMonitor />
             </Layout>
           </ProtectedRoute>
         }

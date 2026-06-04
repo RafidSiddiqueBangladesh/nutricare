@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Activity, Smile, User, Hand, Video, ChevronRight } from 'lucide-react';
+import { ChevronLeft, Activity, Smile, User, Hand, Video, ChevronRight, Heart } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 
@@ -11,6 +11,7 @@ export default function TrackingOptions() {
     { icon: Smile, label: 'Face Detection & Mood', desc: 'Detect face and classify happy, neutral, sad states.', path: '/health/monitor/face' },
     { icon: User, label: 'Shoulder Movement', desc: 'Track shoulder engagement and posture movement.', path: '/health/monitor/pose' },
     { icon: Hand, label: 'Hand Movement', desc: 'Detect arm/hand motion for exercise repetition quality.', path: '/health/monitor/hand' },
+    { icon: Heart, label: 'Vital Signs (Heart & Resp)', desc: 'Estimate heart rate, HRV and respiratory rate from facial video.', path: '/health/monitor/vitals' },
   ];
 
   return (
