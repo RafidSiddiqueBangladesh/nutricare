@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../services/api';
 import { appendHealthResult } from '../lib/healthResults';
 
 const CDN_SRC = 'https://cdn.jsdelivr.net/npm/vitallens/dist/vitallens.browser.js';
+const VITALLENS_PROXY_URL = new URL('vitallens', `${API_BASE_URL.replace(/\/$/, '')}/`).toString();
 
 export default function VitalLensMonitor() {
   const [loading, setLoading] = useState(true);
@@ -49,7 +51,7 @@ export default function VitalLensMonitor() {
       if (!el) {
         el = document.createElement('vitallens-scan');
         // Use backend proxy URL so API key remains on the server
-        el.setAttribute('proxy-url', '/api/vitallens');
+        el.setAttribute('proxy-url', VITALLENS_PROXY_URL);
         container.appendChild(el);
       }
       return el;
@@ -75,7 +77,7 @@ export default function VitalLensMonitor() {
       appendHealthResult(payload);
 
       // POST to backend to persist (backend route added)
-      fetch('/api/health/vitals-analysis', {
+      fetch(new URL('health/vitals-analysis', `${API_BASE_URL.replace(/\/$/, '')}/`).toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
