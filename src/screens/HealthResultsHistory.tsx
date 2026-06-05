@@ -4,10 +4,12 @@ import { motion } from 'motion/react';
 import { ChevronLeft, BarChart3, TrendingUp, Calendar, Filter, Download, Trash2 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { useLocalStorage } from '@/src/hooks/useLocalStorage';
+import { supabase } from '@/src/services/supabase';
+import { API_BASE_URL } from '@/src/services/api';
 
 interface HealthResult {
   id: string;
-  type: 'face' | 'pose' | 'hand' | 'bmi' | 'vitals';
+  type: 'face' | 'pose' | 'hand' | 'bmi' | 'vitals' | 'disease';
   timestamp: string;
   data: {
     // vitals
@@ -28,6 +30,10 @@ interface HealthResult {
     category?: string;
     weight?: number;
     height?: number;
+    label?: string;
+    kind?: string;
+    score?: number;
+    details?: Record<string, unknown>;
   };
 }
 
@@ -35,9 +41,66 @@ export default function HealthResultsHistory() {
   const navigate = useNavigate();
   const [results, setResults] = useLocalStorage<HealthResult[]>('health-results', []);
   const [bmiLogs] = useLocalStorage<any[]>('health-metrics', []);
+  const [backendResults, setBackendResults] = useState<HealthResult[]>([]);
   const [filteredResults, setFilteredResults] = useState<HealthResult[]>(results);
-  const [filterType, setFilterType] = useState<'all' | 'face' | 'pose' | 'hand' | 'vitals' | 'bmi'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'face' | 'pose' | 'hand' | 'vitals' | 'disease' | 'bmi'>('all');
   const [searchDate, setSearchDate] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadBackendResults = async () => {
+      const token = localStorage.getItem('sb_access_token');
+      const session = await supabase.auth.getSession().catch(() => ({ data: null }));
+      const accessToken = token || session.data?.session?.access_token || null;
+
+      try {
+        const response = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/profile/health-results?limit=20`, {
+          headers: {
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          credentials: 'include',
+        });
+
+        if (!response.ok) return;
+        const payload = await response.json();
+        const tracking = payload?.data?.tracking || {};
+        const remote: HealthResult[] = [];
+
+        Object.entries(tracking).forEach(([type, entries]: any) => {
+          (entries || []).forEach((entry: any) => {
+            remote.push({
+              id: entry.id,
+              type: String(type).startsWith('disease_') ? 'disease' : (type as HealthResult['type']),
+              timestamp: entry.createdAt,
+              data: {
+                label: entry.label,
+                kind: type,
+                score: entry.score,
+                details: entry.details || {},
+                vitals: entry.details?.vitals,
+                heartRate: entry.details?.vitals?.heart_rate?.value ?? entry.score,
+                respiratoryRate: entry.details?.vitals?.respiratory_rate?.value,
+                hrv: entry.details?.vitals?.hrv?.value,
+              },
+            });
+          });
+        });
+
+        if (mounted) {
+          setBackendResults(remote);
+        }
+      } catch (error) {
+        console.error('Failed to load backend results:', error);
+      }
+    };
+
+    loadBackendResults();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const legacyBmiResults: HealthResult[] = (bmiLogs || [])
@@ -54,7 +117,10 @@ export default function HealthResultsHistory() {
         },
       }));
 
-    let filtered = [...results, ...legacyBmiResults];
+    const merged = [...results, ...backendResults, ...legacyBmiResults];
+    const unique = Array.from(new Map(merged.map((item) => [item.id, item])).values());
+
+    let filtered = unique;
 
     if (filterType !== 'all') {
       filtered = filtered.filter(r => r.type === filterType);
@@ -67,7 +133,7 @@ export default function HealthResultsHistory() {
     setFilteredResults(filtered.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     ));
-  }, [results, bmiLogs, filterType, searchDate]);
+  }, [results, backendResults, bmiLogs, filterType, searchDate]);
 
   const deleteResult = (id: string) => {
     if (confirm('Delete this result?')) {
@@ -99,6 +165,7 @@ export default function HealthResultsHistory() {
       case 'hand': return '✋';
       case 'bmi': return '⚖️';
       case 'vitals': return '❤️';
+      case 'disease': return '🩺';
       default: return '📊';
     }
   };
@@ -110,37 +177,39 @@ export default function HealthResultsHistory() {
       case 'hand': return 'Hand Gesture';
       case 'bmi': return 'BMI Record';
       case 'vitals': return 'Vitals (HR/RR)';
+      case 'disease': return 'Disease Screening';
       default: return 'Unknown';
     }
   };
 
   const stats = {
-    total: results.length,
-    face: results.filter(r => r.type === 'face').length,
-    pose: results.filter(r => r.type === 'pose').length,
-    hand: results.filter(r => r.type === 'hand').length,
-    bmi: results.filter(r => r.type === 'bmi').length,
-    vitals: results.filter(r => r.type === 'vitals').length,
+    total: filteredResults.length,
+    face: filteredResults.filter(r => r.type === 'face').length,
+    pose: filteredResults.filter(r => r.type === 'pose').length,
+    hand: filteredResults.filter(r => r.type === 'hand').length,
+    bmi: filteredResults.filter(r => r.type === 'bmi').length,
+    vitals: filteredResults.filter(r => r.type === 'vitals').length,
+    disease: filteredResults.filter(r => r.type === 'disease').length,
   };
 
-  const totalReps = results
+  const totalReps = filteredResults
     .filter(r => r.type === 'pose')
     .reduce((sum, r) => sum + (r.data.repCount || 0), 0);
 
-  const avgFormScore = results.filter(r => r.type === 'pose').length > 0
+  const avgFormScore = filteredResults.filter(r => r.type === 'pose').length > 0
     ? Math.round(
-        results.filter(r => r.type === 'pose')
+        filteredResults.filter(r => r.type === 'pose')
           .reduce((sum, r) => sum + (r.data.formScore || 0), 0) /
-        results.filter(r => r.type === 'pose').length
+        filteredResults.filter(r => r.type === 'pose').length
       )
     : 0;
 
-  const avgBmi = results.filter(r => r.type === 'bmi' && typeof r.data.bmi === 'number').length > 0
+  const avgBmi = filteredResults.filter(r => r.type === 'bmi' && typeof r.data.bmi === 'number').length > 0
     ? (
-        results
+        filteredResults
           .filter(r => r.type === 'bmi' && typeof r.data.bmi === 'number')
           .reduce((sum, r) => sum + (r.data.bmi || 0), 0) /
-        results.filter(r => r.type === 'bmi' && typeof r.data.bmi === 'number').length
+        filteredResults.filter(r => r.type === 'bmi' && typeof r.data.bmi === 'number').length
       ).toFixed(2)
     : '0.00';
 
@@ -216,6 +285,7 @@ export default function HealthResultsHistory() {
             { type: 'face', label: 'Face Detection', count: stats.face, color: 'from-blue-600 to-blue-400' },
             { type: 'hand', label: 'Hand Gesture', count: stats.hand, color: 'from-purple-600 to-purple-400' },
             { type: 'vitals', label: 'Vitals (HR/RR)', count: stats.vitals, color: 'from-amber-600 to-amber-400' },
+            { type: 'disease', label: 'Disease Screening', count: stats.disease, color: 'from-cyan-600 to-cyan-400' },
             { type: 'bmi', label: 'BMI Records', count: stats.bmi, color: 'from-rose-600 to-rose-400' },
           ].map(cat => (
             <div key={cat.type} className="flex items-center gap-3">
@@ -240,7 +310,7 @@ export default function HealthResultsHistory() {
           <div>
             <p className="text-xs text-white/60 mb-2">Type</p>
             <div className="flex gap-2">
-              {(['all', 'pose', 'face', 'hand', 'vitals', 'bmi'] as const).map(type => (
+              {(['all', 'pose', 'face', 'hand', 'vitals', 'disease', 'bmi'] as const).map(type => (
                 <motion.button
                   key={type}
                   whileHover={{ scale: 1.05 }}
@@ -352,6 +422,12 @@ export default function HealthResultsHistory() {
                         <p className="text-xs">HRV: {result.data.hrv ?? result.data.vitals?.hrv?.value ?? '--'}</p>
                       </div>
                     )}
+                    {result.type === 'disease' && (
+                      <div className="text-sm text-white/70 max-w-[180px]">
+                        <p className="font-bold text-cyan-400">{result.data.label || 'Screening result'}</p>
+                        <p className="text-xs text-white/50">{result.data.kind || 'disease'}</p>
+                      </div>
+                    )}
                     {result.type === 'bmi' && (
                       <>
                         <p className="text-sm font-bold text-rose-400">BMI {typeof result.data.bmi === 'number' ? result.data.bmi.toFixed(2) : '--'}</p>
@@ -402,6 +478,12 @@ export default function HealthResultsHistory() {
               <div className="flex justify-between">
                 <span className="text-white/60">Average BMI:</span>
                 <span className="font-bold text-rose-400">{avgBmi}</span>
+              </div>
+            )}
+            {filteredResults.some(r => r.type === 'disease') && (
+              <div className="flex justify-between">
+                <span className="text-white/60">Disease Screenings:</span>
+                <span className="font-bold text-cyan-400">{filteredResults.filter(r => r.type === 'disease').length}</span>
               </div>
             )}
           </div>

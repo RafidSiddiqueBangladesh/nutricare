@@ -25,6 +25,7 @@ import DoctorBooking from './screens/DoctorBooking';
 import AnalysisHistory from './screens/AnalysisHistory';
 import MoodSuggestions from './screens/MoodSuggestions';
 import TrackingOptions from './screens/TrackingOptions';
+import DiseaseHubPage from './screens/DiseaseHubPage';
 import AIDiagnosis from './screens/AIDiagnosis';
 import VideoCall from './screens/VideoCall';
 import FaceMonitor from './screens/FaceMonitor';
@@ -34,6 +35,15 @@ import VitalLensMonitor from './screens/VitalLensMonitor';
 import LiveExerciseEditor from './screens/LiveExerciseEditor';
 import HealthResultsHistory from './screens/HealthResultsHistory';
 import Profile from './screens/Profile';
+import ColorBlindnessPage from './screens/disease/ColorBlindnessPage';
+import VisualAcuityPage from './screens/disease/VisualAcuityPage';
+import AstigmatismPage from './screens/disease/AstigmatismPage';
+import ContrastPage from './screens/disease/ContrastPage';
+import ColorSortPage from './screens/disease/ColorSortPage';
+import ReactionPage from './screens/disease/ReactionPage';
+import TremorPage from './screens/disease/TremorPage';
+import HearingPage from './screens/disease/HearingPage';
+import MemoryPage from './screens/disease/MemoryPage';
 import './index.css';
 
 function AppRoutes() {
@@ -147,6 +157,16 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/health/disease"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <DiseaseHubPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/health/mood"
         element={
           <ProtectedRoute>
@@ -205,6 +225,52 @@ function AppRoutes() {
             </Layout>
           </ProtectedRoute>
         }
+      />
+      <Route
+        path="/health/disease/vitals"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <VitalLensMonitor />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/disease/color-blindness"
+        element={<ProtectedRoute><Layout><ColorBlindnessPage /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/health/disease/visual-acuity"
+        element={<ProtectedRoute><Layout><VisualAcuityPage /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/health/disease/astigmatism"
+        element={<ProtectedRoute><Layout><AstigmatismPage /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/health/disease/contrast"
+        element={<ProtectedRoute><Layout><ContrastPage /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/health/disease/color-sort"
+        element={<ProtectedRoute><Layout><ColorSortPage /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/health/disease/reaction"
+        element={<ProtectedRoute><Layout><ReactionPage /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/health/disease/tremor"
+        element={<ProtectedRoute><Layout><TremorPage /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/health/disease/hearing"
+        element={<ProtectedRoute><Layout><HearingPage /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/health/disease/memory"
+        element={<ProtectedRoute><Layout><MemoryPage /></Layout></ProtectedRoute>}
       />
       <Route
         path="/video-call/:doctorId"

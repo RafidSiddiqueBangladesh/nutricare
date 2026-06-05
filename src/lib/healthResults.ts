@@ -1,16 +1,21 @@
-export type HealthResultType = 'face' | 'pose' | 'hand' | 'bmi' | 'vitals';
+export type HealthResultType = 'face' | 'pose' | 'hand' | 'bmi' | 'vitals' | 'disease';
 
 export interface HealthResultEntry {
   id: string;
   type: HealthResultType;
   timestamp: string;
   data: {
+    label?: string;
+    score?: number;
+    note?: string;
+    kind?: string;
     // vitals values (when type === 'vitals')
     vitals?: any;
     // convenience short maps
     heartRate?: number;
     respiratoryRate?: number;
     hrv?: number;
+    [key: string]: any;
     confidence?: number;
     emotion?: string;
     repCount?: number;
