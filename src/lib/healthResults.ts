@@ -1,10 +1,16 @@
-export type HealthResultType = 'face' | 'pose' | 'hand' | 'bmi';
+export type HealthResultType = 'face' | 'pose' | 'hand' | 'bmi' | 'vitals';
 
 export interface HealthResultEntry {
   id: string;
   type: HealthResultType;
   timestamp: string;
   data: {
+    // vitals values (when type === 'vitals')
+    vitals?: any;
+    // convenience short maps
+    heartRate?: number;
+    respiratoryRate?: number;
+    hrv?: number;
     confidence?: number;
     emotion?: string;
     repCount?: number;
@@ -25,6 +31,16 @@ export const appendHealthResult = (entry: HealthResultEntry) => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const existing: HealthResultEntry[] = raw ? JSON.parse(raw) : [];
+    // Ensure an id exists
+    if (!entry.id) {
+      try {
+        // use crypto API when available
+        // @ts-ignore
+        entry.id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `hr-${Date.now()}`;
+      } catch {
+        entry.id = `hr-${Date.now()}`;
+      }
+    }
     const next = [entry, ...existing];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch (error) {

@@ -7,9 +7,16 @@ import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 
 interface HealthResult {
   id: string;
-  type: 'face' | 'pose' | 'hand' | 'bmi';
+  type: 'face' | 'pose' | 'hand' | 'bmi' | 'vitals';
   timestamp: string;
   data: {
+    // vitals
+    vitals?: any;
+    heartRate?: number;
+    respiratoryRate?: number;
+    hrv?: number;
+
+    // existing
     emotion?: string;
     repCount?: number;
     formScore?: number;
@@ -29,7 +36,7 @@ export default function HealthResultsHistory() {
   const [results, setResults] = useLocalStorage<HealthResult[]>('health-results', []);
   const [bmiLogs] = useLocalStorage<any[]>('health-metrics', []);
   const [filteredResults, setFilteredResults] = useState<HealthResult[]>(results);
-  const [filterType, setFilterType] = useState<'all' | 'face' | 'pose' | 'hand' | 'bmi'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'face' | 'pose' | 'hand' | 'vitals' | 'bmi'>('all');
   const [searchDate, setSearchDate] = useState('');
 
   useEffect(() => {
@@ -91,6 +98,7 @@ export default function HealthResultsHistory() {
       case 'pose': return '💪';
       case 'hand': return '✋';
       case 'bmi': return '⚖️';
+      case 'vitals': return '❤️';
       default: return '📊';
     }
   };
@@ -101,6 +109,7 @@ export default function HealthResultsHistory() {
       case 'pose': return 'Exercise Tracking';
       case 'hand': return 'Hand Gesture';
       case 'bmi': return 'BMI Record';
+      case 'vitals': return 'Vitals (HR/RR)';
       default: return 'Unknown';
     }
   };
@@ -111,6 +120,7 @@ export default function HealthResultsHistory() {
     pose: results.filter(r => r.type === 'pose').length,
     hand: results.filter(r => r.type === 'hand').length,
     bmi: results.filter(r => r.type === 'bmi').length,
+    vitals: results.filter(r => r.type === 'vitals').length,
   };
 
   const totalReps = results
@@ -205,6 +215,7 @@ export default function HealthResultsHistory() {
             { type: 'pose', label: 'Exercise Tracking', count: stats.pose, color: 'from-teal-600 to-teal-400' },
             { type: 'face', label: 'Face Detection', count: stats.face, color: 'from-blue-600 to-blue-400' },
             { type: 'hand', label: 'Hand Gesture', count: stats.hand, color: 'from-purple-600 to-purple-400' },
+            { type: 'vitals', label: 'Vitals (HR/RR)', count: stats.vitals, color: 'from-amber-600 to-amber-400' },
             { type: 'bmi', label: 'BMI Records', count: stats.bmi, color: 'from-rose-600 to-rose-400' },
           ].map(cat => (
             <div key={cat.type} className="flex items-center gap-3">
@@ -229,7 +240,7 @@ export default function HealthResultsHistory() {
           <div>
             <p className="text-xs text-white/60 mb-2">Type</p>
             <div className="flex gap-2">
-              {(['all', 'pose', 'face', 'hand', 'bmi'] as const).map(type => (
+              {(['all', 'pose', 'face', 'hand', 'vitals', 'bmi'] as const).map(type => (
                 <motion.button
                   key={type}
                   whileHover={{ scale: 1.05 }}
@@ -333,6 +344,13 @@ export default function HealthResultsHistory() {
                     )}
                     {result.type === 'hand' && (
                       <p className="text-sm font-bold text-purple-400 capitalize">{result.data.gesture}</p>
+                    )}
+                    {result.type === 'vitals' && (
+                      <div className="text-sm text-white/70">
+                        <p className="font-bold text-amber-400">HR: {result.data.heartRate ?? result.data.vitals?.heart_rate?.value ?? '--'}</p>
+                        <p className="text-xs">Resp: {result.data.respiratoryRate ?? result.data.vitals?.respiratory_rate?.value ?? '--'}</p>
+                        <p className="text-xs">HRV: {result.data.hrv ?? result.data.vitals?.hrv?.value ?? '--'}</p>
+                      </div>
                     )}
                     {result.type === 'bmi' && (
                       <>
