@@ -54,6 +54,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const isImmersiveExerciseRoute =
     location.pathname.startsWith('/exercises/coach/') || location.pathname === '/exercises/live-editor';
+  const activeNavItem = NAV_ITEMS.find((item) => isActiveNavItem(location.pathname, item));
 
   return (
     <div className={cn('relative min-h-screen overflow-hidden', isImmersiveExerciseRoute ? 'pb-4' : 'pb-24')}>
@@ -84,79 +85,138 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
       </div>
 
-      {/* Header */}
-      <header className="relative z-10 px-6 pt-6 flex justify-between items-center sticky top-0 bg-transparent">
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-4 py-2 flex items-center gap-2">
-          {NAV_ITEMS.find(item => isActiveNavItem(location.pathname, item))?.icon && (
-            <div className="primary-color p-1 rounded-full text-slate-950">
-              {React.createElement(NAV_ITEMS.find(item => isActiveNavItem(location.pathname, item))!.icon, { size: 16 })}
+      <div className="relative z-10 mx-auto w-full max-w-[1800px] px-4 pt-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-4 bg-transparent pb-4">
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-4 py-2 flex items-center gap-2">
+            {activeNavItem?.icon && (
+              <div className="primary-color p-1 rounded-full text-slate-950">
+                {React.createElement(activeNavItem.icon, { size: 16 })}
+              </div>
+            )}
+            <span className="font-medium text-sm primary-text">
+              {activeNavItem?.label || 'LifeSync AI'}
+            </span>
+            <div className="w-1.5 h-1.5 rounded-full primary-color" />
+          </div>
+
+          {user && (
+            <div className="relative">
+              <button
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors border border-white/20"
+              >
+                <div className="w-6 h-6 rounded-full primary-color flex items-center justify-center text-xs font-bold text-black">
+                  {user.name?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <span className="text-xs font-bold text-white/80 max-w-[100px] truncate">{user.name}</span>
+                <ChevronDown size={14} className={`transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {isUserMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                    className="absolute top-full right-0 mt-2 w-48 glass-card rounded-2xl overflow-hidden z-50"
+                  >
+                    <div className="p-3 border-b border-white/10">
+                      <p className="text-xs text-white/60 uppercase tracking-wider font-bold">Account</p>
+                      <p className="text-sm font-bold mt-1">{user.name}</p>
+                      <p className="text-xs text-white/60">{user.email}</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        setIsUserMenuOpen(false);
+                        await signOut();
+                      }}
+                      className="w-full px-3 py-2 flex items-center gap-2 text-red-400 hover:bg-red-500/10 transition-colors text-sm font-bold"
+                    >
+                      <LogOut size={16} />
+                      Sign Out
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
-          <span className="font-medium text-sm primary-text">
-            {NAV_ITEMS.find(item => isActiveNavItem(location.pathname, item))?.label || 'LifeSync AI'}
-          </span>
-          <div className="w-1.5 h-1.5 rounded-full primary-color" />
-        </div>
+        </header>
 
-        {/* User Menu */}
-        {user && (
-          <div className="relative">
-            <button
-              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-              className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors border border-white/20"
-            >
-              <div className="w-6 h-6 rounded-full primary-color flex items-center justify-center text-xs font-bold text-black">
-                {user.name?.[0]?.toUpperCase() || 'U'}
-              </div>
-              <span className="text-xs font-bold text-white/80 max-w-[100px] truncate">{user.name}</span>
-              <ChevronDown size={14} className={`transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Dropdown Menu */}
-            <AnimatePresence>
-              {isUserMenuOpen && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                  className="absolute top-full right-0 mt-2 w-48 glass-card rounded-2xl overflow-hidden z-50"
-                >
-                  <div className="p-3 border-b border-white/10">
-                    <p className="text-xs text-white/60 uppercase tracking-wider font-bold">Account</p>
-                    <p className="text-sm font-bold mt-1">{user.name}</p>
-                    <p className="text-xs text-white/60">{user.email}</p>
+        <div className="xl:grid xl:grid-cols-[300px_minmax(0,1fr)] xl:gap-8">
+          {!isImmersiveExerciseRoute && (
+            <aside className="hidden xl:flex xl:flex-col xl:gap-4">
+              <div className="glass-card !p-5">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="primary-color p-2 rounded-2xl text-slate-950">
+                    <ShieldAlert size={20} />
                   </div>
-                  <button
-                    onClick={async () => {
-                      setIsUserMenuOpen(false);
-                      await signOut();
-                    }}
-                    className="w-full px-3 py-2 flex items-center gap-2 text-red-400 hover:bg-red-500/10 transition-colors text-sm font-bold"
-                  >
-                    <LogOut size={16} />
-                    Sign Out
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-      </header>
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-white/40 font-bold">LifeSync AI</p>
+                    <h2 className="text-xl font-black">Control Center</h2>
+                  </div>
+                </div>
 
-      {/* Page Content */}
-      <main className="relative z-10 container max-w-lg mx-auto px-4 pt-4">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-          >
-            {children}
-          </motion.div>
-        </AnimatePresence>
-      </main>
+                <nav className="space-y-2">
+                  {NAV_ITEMS.map((item) => {
+                    const isActive = isActiveNavItem(location.pathname, item);
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        className={cn(
+                          'flex items-center gap-3 rounded-2xl px-4 py-3 transition-all duration-300 border',
+                          isActive
+                            ? 'bg-white/15 border-white/20 text-white shadow-lg'
+                            : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+                        )}
+                      >
+                        <span className={cn('flex h-10 w-10 items-center justify-center rounded-xl', isActive ? 'primary-color text-slate-950' : 'bg-white/10')}>
+                          <Icon size={18} />
+                        </span>
+                        <span className="text-sm font-bold">{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </div>
+
+              <button
+                onClick={() => setIsThemeOpen(true)}
+                className="glass-card !p-4 primary-text primary-shadow hover:scale-[1.01] active:scale-[0.99] transition-all text-left"
+                style={{
+                  background: `hsl(var(--primary-hue), 30%, 15%)`,
+                  borderColor: `hsl(var(--primary-hue), 70%, 50%)`
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <Palette size={20} />
+                  <div>
+                    <p className="text-sm font-bold">Theme Editor</p>
+                    <p className="text-xs text-white/50">Adjust the desktop mood</p>
+                  </div>
+                </div>
+              </button>
+            </aside>
+          )}
+
+          <main className={cn('relative z-10 w-full pt-4 xl:pt-0', isImmersiveExerciseRoute ? 'xl:col-span-2' : '')}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="w-full"
+              >
+                {children}
+              </motion.div>
+            </AnimatePresence>
+          </main>
+        </div>
+      </div>
 
       {/* Theme FAB */}
       {!isImmersiveExerciseRoute && (
@@ -173,7 +233,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </button>
 
           {/* Bottom Nav */}
-          <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md">
+          <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md xl:hidden">
             <div className="glass-card !p-1.5 grid grid-cols-7 gap-1">
               {NAV_ITEMS.map((item) => {
                 const isActive = isActiveNavItem(location.pathname, item);
