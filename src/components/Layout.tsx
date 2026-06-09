@@ -85,7 +85,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
       </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-[1800px] px-4 pt-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto w-full max-w-[1440px] px-4 pt-4 sm:px-6 lg:px-8">
         {/* Header */}
         <header className="sticky top-0 z-20 flex items-center justify-between gap-4 bg-transparent pb-4">
           <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-4 py-2 flex items-center gap-2">
@@ -209,7 +209,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
-                className="w-full"
+                className="w-full max-w-5xl"
               >
                 {children}
               </motion.div>

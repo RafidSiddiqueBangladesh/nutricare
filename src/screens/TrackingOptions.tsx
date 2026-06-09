@@ -31,13 +31,13 @@ export default function TrackingOptions() {
       </div>
 
       <section className="glass-card">
-        <h3 className="text-lg md:text-2xl font-bold mb-2">AI Tracking Modules</h3>
-        <p className="text-sm md:text-base text-white/60 max-w-3xl">
+        <h3 className="text-lg md:text-xl font-bold mb-2">AI Tracking Modules</h3>
+        <p className="text-sm md:text-sm text-white/60 max-w-2xl">
           Choose tracking modules. The Live tab combines face mood + shoulder + hand movement while you exercise.
         </p>
       </section>
 
-      <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-2">
         {MODULES.map((mod, i) => (
           <motion.button
             key={i}
@@ -45,17 +45,17 @@ export default function TrackingOptions() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: i * 0.1 }}
             onClick={() => navigate(mod.path)}
-            className="glass-card !p-5 md:!p-6 flex items-center gap-5 md:gap-6 group hover:bg-white/20 transition-all text-left"
+            className="glass-card !p-5 flex items-center gap-5 group hover:bg-white/20 transition-all text-left"
           >
-            <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-teal-400/10 flex items-center justify-center text-teal-400 shrink-0 group-hover:scale-110 transition-transform">
-              <mod.icon size={30} />
+            <div className="w-14 h-14 rounded-2xl bg-teal-400/10 flex items-center justify-center text-teal-400 shrink-0 group-hover:scale-105 transition-transform">
+              <mod.icon size={26} />
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between">
-                <h4 className="font-bold text-base md:text-lg">{mod.label}</h4>
+                <h4 className="font-bold text-base">{mod.label}</h4>
                 <ChevronRight size={18} className="text-white/20 flex-shrink-0" />
               </div>
-              <p className="text-xs md:text-sm text-white/40 leading-tight mt-1">{mod.desc}</p>
+              <p className="text-xs text-white/40 leading-tight mt-1">{mod.desc}</p>
             </div>
           </motion.button>
         ))}
@@ -63,7 +63,7 @@ export default function TrackingOptions() {
 
       <button 
         onClick={() => navigate('/exercises')}
-        className="btn-primary w-full py-4 md:py-5 text-base md:text-lg flex items-center justify-center gap-3 shadow-xl"
+        className="btn-primary w-full py-4 text-base flex items-center justify-center gap-3 shadow-xl"
       >
         <Video size={20} fill="currentColor" />
         Open Live Monitor
