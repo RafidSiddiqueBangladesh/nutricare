@@ -159,6 +159,14 @@ Provide a comprehensive health analysis with recommendations. Be clear that this
     return this.chat(systemPrompt);
   }
 
+  // AI Prescription OCR & Analysis
+  async analyzePrescription(image: string): Promise<any> {
+    return this.request('/ai/prescription-ocr', {
+      method: 'POST',
+      body: JSON.stringify({ image }),
+    });
+  }
+
   // Exercise Detection (via AI)
   async detectExercise(
     frameData: string,

@@ -13,17 +13,20 @@ interface FaceDetectorProps {
   onDetection?: (result: FaceDetectionResult) => void;
   isRunning?: boolean;
   showCanvas?: boolean;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
 }
 
 export const FaceDetector: React.FC<FaceDetectorProps> = ({
   onDetection,
   isRunning = true,
   showCanvas = true,
+  videoRef: propVideoRef,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { videoRef, startCamera, error: cameraError } = useCamera();
+  const { videoRef: hookVideoRef, startCamera, error: cameraError } = useCamera();
+  const videoRef = propVideoRef || hookVideoRef;
   const faceLandmarkerRef = useRef<any>(null);
   const animationRef = useRef<number | null>(null);
 

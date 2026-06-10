@@ -27,6 +27,7 @@ import MoodSuggestions from './screens/MoodSuggestions';
 import TrackingOptions from './screens/TrackingOptions';
 import DiseaseHubPage from './screens/DiseaseHubPage';
 import AIDiagnosis from './screens/AIDiagnosis';
+import PrescriptionAnalysis from './screens/PrescriptionAnalysis';
 import VideoCall from './screens/VideoCall';
 import FaceMonitor from './screens/FaceMonitor';
 import PoseMonitor from './screens/PoseMonitor';
@@ -183,6 +184,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <AIDiagnosis />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/prescription"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <PrescriptionAnalysis />
             </Layout>
           </ProtectedRoute>
         }

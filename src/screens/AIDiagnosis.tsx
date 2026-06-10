@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   ChevronLeft,
   Sparkles,
@@ -8,101 +8,77 @@ import {
   AlertCircle,
   Loader,
   Send,
+  RefreshCw,
+  Heart
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/src/lib/utils';
 import { apiService } from '@/src/services/api';
 import FaceDetector, { FaceDetectionResult } from '@/src/components/FaceDetector';
-import { useCamera, useCanvasCapture } from '@/src/hooks/useMedia';
-
-interface DiagnosisData {
-  symptoms: string[];
-  vitals: {
-    heartRate?: number;
-    bloodPressure?: string;
-    temperature?: number;
-  };
-  imageData?: string;
-  detectedConditions?: string[];
-}
+import { useCanvasCapture } from '@/src/hooks/useMedia';
 
 export default function AIDiagnosis() {
   const navigate = useNavigate();
-  const [activeStep, setActiveStep] = useState<'input' | 'camera' | 'analysis'>('input');
-  const [symptoms, setSymptoms] = useState<string[]>([]);
-  const [symptomInput, setSymptomInput] = useState('');
-  const [vitals, setVitals] = useState({
-    heartRate: '',
-    bloodPressure: '',
-    temperature: '',
-  });
-  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [activeStep, setActiveStep] = useState<'camera' | 'analysis'>('camera');
+  const [isCameraActive, setIsCameraActive] = useState(true);
   const [faceData, setFaceData] = useState<FaceDetectionResult | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [capturedEmotion, setCapturedEmotion] = useState<string>('');
   const [diagnosis, setDiagnosis] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
-  const { videoRef, startCamera, stopCamera } = useCamera();
-  const { canvasRef, captureFrame } = useCanvasCapture(videoRef);
 
-  const addSymptom = () => {
-    if (symptomInput.trim()) {
-      setSymptoms([...symptoms, symptomInput.trim()]);
-      setSymptomInput('');
-    }
-  };
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const { canvasRef, captureFrame } = useCanvasCapture(videoRef as any);
 
-  const removeSymptom = (index: number) => {
-    setSymptoms(symptoms.filter((_, i) => i !== index));
-  };
-
-  const handleCapture = () => {
+  const handleCapture = async () => {
+    setError('');
     const frameData = captureFrame();
-    if (frameData) {
-      // Store image data for diagnosis
-      setActiveStep('analysis');
-    }
-  };
-
-  const handleAnalyze = async () => {
-    if (symptoms.length === 0) {
-      setError('Please enter at least one symptom');
+    if (!frameData) {
+      setError('Could not capture screenshot. Ensure camera is active.');
       return;
     }
 
+    const emotion = faceData?.emotion || 'neutral';
+    setCapturedImage(frameData);
+    setCapturedEmotion(emotion);
+    setActiveStep('analysis');
     setIsLoading(true);
-    setError('');
+    setIsCameraActive(false);
 
     try {
-      const diagnosisData: DiagnosisData = {
-        symptoms,
-        vitals: {
-          heartRate: vitals.heartRate ? parseInt(vitals.heartRate) : undefined,
-          bloodPressure: vitals.bloodPressure || undefined,
-          temperature: vitals.temperature ? parseFloat(vitals.temperature) : undefined,
-        },
-        detectedConditions: faceData ? ['face_detected'] : undefined,
-      };
+      const promptText = `You are a professional medical AI assistant.
+A patient has captured a screenshot of their face for analysis.
+The facial emotion detected is: ${emotion.toUpperCase()} (${emotion === 'happy' ? 'Happy/Cheerful' : emotion === 'sad' ? 'Sad/Depressed' : emotion === 'astonished' ? 'Astonished/Surprised' : 'Neutral'}).
 
-      const response = await apiService.analyzeDiagnosis(diagnosisData);
+Based ONLY on this facial analysis and emotional state:
+1. Provide a professional assessment of their emotional state and potential mental health implications (e.g. stress, fatigue, mood disorders).
+2. Suggest lifestyle, dietary, and physical activity adjustments.
+3. List potential symptoms or early warning signs they should watch out for.
+4. Give a clear disclaimer that this is for educational purposes only and not a clinical diagnosis.`;
+
+      const response = await apiService.chat(promptText);
 
       if (response.success && response.data?.text) {
         setDiagnosis(response.data.text);
-        setActiveStep('analysis');
       } else {
-        setError(response.message || 'Failed to analyze diagnosis');
+        setError(response.message || 'Failed to generate AI diagnosis');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed');
+      setError(err instanceof Error ? err.message : 'Diagnosis generation failed');
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, [stopCamera]);
+  const handleReset = () => {
+    setDiagnosis('');
+    setCapturedImage(null);
+    setCapturedEmotion('');
+    setError('');
+    setIsCameraActive(true);
+    setActiveStep('camera');
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -116,39 +92,10 @@ export default function AIDiagnosis() {
         <div className="flex-1 flex justify-center">
           <div className="bg-teal-500/10 border border-teal-500/20 rounded-full px-4 py-1 flex items-center gap-2 text-teal-400">
             <Sparkles size={14} />
-            <span className="text-xs font-bold uppercase tracking-wider">AI Diagnosis</span>
+            <span className="text-xs font-bold uppercase tracking-wider">AI Face Diagnosis</span>
             <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
           </div>
         </div>
-      </div>
-
-      {/* Step Indicator */}
-      <div className="flex gap-2 px-4">
-        {(['input', 'camera', 'analysis'] as const).map((step, i) => (
-          <div key={step} className="flex items-center">
-            <button
-              onClick={() => activeStep === 'analysis' && setActiveStep(step)}
-              className={cn(
-                'w-8 h-8 rounded-full font-bold text-xs flex items-center justify-center transition-all',
-                activeStep === step || step === 'analysis'
-                  ? 'bg-teal-500 text-teal-950'
-                  : 'bg-white/10 text-white/60'
-              )}
-            >
-              {i + 1}
-            </button>
-            {i < 2 && (
-              <div
-                className={cn(
-                  'h-0.5 w-8 mx-1 transition-all',
-                  activeStep === step || step === 'analysis'
-                    ? 'bg-teal-500'
-                    : 'bg-white/10'
-                )}
-              />
-            )}
-          </div>
-        ))}
       </div>
 
       {error && (
@@ -162,101 +109,7 @@ export default function AIDiagnosis() {
         </motion.div>
       )}
 
-      {/* Step 1: Input Symptoms & Vitals */}
-      {activeStep === 'input' && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col gap-4 px-4"
-        >
-          <div className="glass-card !p-4 flex flex-col gap-4">
-            <h3 className="text-lg font-bold">Your Symptoms</h3>
-
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={symptomInput}
-                onChange={(e) => setSymptomInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && addSymptom()}
-                placeholder="e.g., headache, fever, cough..."
-                className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:border-teal-400"
-              />
-              <button
-                onClick={addSymptom}
-                className="bg-teal-500 hover:bg-teal-400 text-teal-950 px-4 py-2 rounded-lg font-bold text-sm transition-all"
-              >
-                Add
-              </button>
-            </div>
-
-            {symptoms.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {symptoms.map((symptom, i) => (
-                  <motion.button
-                    key={i}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    onClick={() => removeSymptom(i)}
-                    className="bg-teal-500/30 hover:bg-teal-500/50 text-teal-300 px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-2"
-                  >
-                    {symptom}
-                    <span>×</span>
-                  </motion.button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="glass-card !p-4 flex flex-col gap-4">
-            <h3 className="text-lg font-bold">Vital Signs (Optional)</h3>
-
-            <div className="flex flex-col gap-3">
-              <input
-                type="number"
-                value={vitals.heartRate}
-                onChange={(e) => setVitals({ ...vitals, heartRate: e.target.value })}
-                placeholder="Heart Rate (bpm)"
-                className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:border-teal-400"
-              />
-              <input
-                type="text"
-                value={vitals.bloodPressure}
-                onChange={(e) => setVitals({ ...vitals, bloodPressure: e.target.value })}
-                placeholder="Blood Pressure (e.g., 120/80)"
-                className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:border-teal-400"
-              />
-              <input
-                type="number"
-                value={vitals.temperature}
-                onChange={(e) => setVitals({ ...vitals, temperature: e.target.value })}
-                step="0.1"
-                placeholder="Temperature (°C)"
-                className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:border-teal-400"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2 pb-4">
-            <button
-              onClick={() => setActiveStep('camera')}
-              className="flex-1 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg font-bold transition-all flex items-center justify-center gap-2"
-            >
-              <Camera size={18} />
-              Add Face Photo
-            </button>
-            <button
-              onClick={handleAnalyze}
-              disabled={isLoading || symptoms.length === 0}
-              className="flex-1 py-3 btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isLoading ? <Loader size={18} className="animate-spin" /> : <Send size={18} />}
-              Analyze
-            </button>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Step 2: Camera */}
+      {/* Step 1: Camera Feed */}
       {activeStep === 'camera' && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -264,115 +117,122 @@ export default function AIDiagnosis() {
           className="flex flex-col gap-4 px-4"
         >
           <div className="glass-card !p-4 flex flex-col gap-4">
-            <h3 className="text-lg font-bold">Capture Face Photo</h3>
+            <h3 className="text-lg font-bold">Capture Face Screenshot</h3>
+            <p className="text-xs text-white/50">
+              Align your face in the camera frame. The AI will analyze your facial expression (such as happy or sad) to diagnose potential indicators.
+            </p>
 
-            {!isCameraActive ? (
-              <button
-                onClick={() => {
-                  setIsCameraActive(true);
-                  startCamera();
-                }}
-                className="py-8 bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 rounded-lg font-bold transition-all flex items-center justify-center gap-2"
-              >
-                <Camera size={20} />
-                Start Camera
-              </button>
-            ) : (
-              <>
-                <div className="aspect-video rounded-lg overflow-hidden bg-black ring-1 ring-white/10">
-                  <FaceDetector
-                    isRunning={isCameraActive}
-                    onDetection={setFaceData}
-                    showCanvas={true}
-                  />
+            <div className="aspect-video rounded-2xl overflow-hidden bg-black ring-1 ring-white/10 relative shadow-inner">
+              <FaceDetector
+                isRunning={isCameraActive}
+                onDetection={setFaceData}
+                showCanvas={true}
+                videoRef={videoRef}
+              />
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
+
+            {faceData && faceData.detected && (
+              <div className="bg-teal-500/20 border border-teal-500/30 rounded-xl p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle size={16} className="text-teal-400" />
+                  <span className="text-xs font-bold text-teal-300">Face Detected</span>
                 </div>
-
-                {faceData && faceData.detected && (
-                  <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-3 flex items-center gap-2">
-                    <CheckCircle size={16} className="text-green-400" />
-                    <span className="text-xs font-bold text-green-300">Face detected</span>
-                  </div>
+                {faceData.emotion && (
+                  <span className="bg-teal-500 text-teal-950 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase">
+                    {faceData.emotion === 'happy' ? '😊 Happy' : faceData.emotion === 'sad' ? '😢 Sad' : faceData.emotion === 'astonished' ? '😲 Astonished' : '😐 Neutral'}
+                  </span>
                 )}
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      stopCamera();
-                      setIsCameraActive(false);
-                      setActiveStep('input');
-                    }}
-                    className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg font-bold transition-all"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={handleCapture}
-                    disabled={!faceData?.detected}
-                    className="flex-1 py-3 btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    <Camera size={18} />
-                    Capture
-                  </button>
-                </div>
-              </>
+              </div>
             )}
+
+            <button
+              onClick={handleCapture}
+              disabled={!faceData?.detected}
+              className="py-3.5 btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-40 transition-all font-bold"
+            >
+              <Camera size={18} />
+              Capture & Analyze Face
+            </button>
           </div>
         </motion.div>
       )}
 
-      {/* Step 3: Analysis Results */}
+      {/* Step 2: Analysis Results */}
       {activeStep === 'analysis' && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col gap-4 px-4 pb-8"
         >
-          {diagnosis ? (
-            <div className="glass-card !p-4 flex flex-col gap-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles size={18} className="text-teal-400" />
-                <h3 className="text-lg font-bold">AI Diagnosis Analysis</h3>
-              </div>
-
-              <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                <p className="text-sm text-white/90 whitespace-pre-wrap leading-relaxed">
-                  {diagnosis}
-                </p>
-              </div>
-
-              <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-3">
-                <p className="text-xs text-blue-300">
-                  ⚠️ This is an AI-generated analysis for educational purposes only. Please consult
-                  with a healthcare professional for proper diagnosis and treatment.
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setActiveStep('input');
-                    setDiagnosis('');
-                    setSymptoms([]);
-                    setVitals({ heartRate: '', bloodPressure: '', temperature: '' });
-                  }}
-                  className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg font-bold transition-all"
-                >
-                  New Analysis
-                </button>
-                <button
-                  onClick={() => navigate('/health')}
-                  className="flex-1 py-3 btn-primary"
-                >
-                  Back to Health
-                </button>
-              </div>
+          <div className="grid md:grid-cols-[260px_1fr] gap-4">
+            {/* Captured Screenshot Preview */}
+            <div className="glass-card !p-4 flex flex-col gap-4 items-center">
+              <h4 className="text-sm font-bold uppercase tracking-wider text-white/50 w-full text-left">Captured Photo</h4>
+              {capturedImage ? (
+                <div className="w-full aspect-square rounded-xl overflow-hidden bg-black ring-1 ring-white/10">
+                  <img src={capturedImage} alt="Captured face screenshot" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="w-full aspect-square bg-white/5 rounded-xl flex items-center justify-center text-white/30 text-xs">
+                  No image captured
+                </div>
+              )}
+              {capturedEmotion && (
+                <div className="w-full bg-teal-500/15 border border-teal-500/25 rounded-xl py-2 px-3 text-center">
+                  <p className="text-[10px] text-teal-300 font-bold uppercase">Detected Emotion</p>
+                  <p className="text-sm font-bold text-white mt-0.5">
+                    {capturedEmotion === 'happy' ? '😊 Happy / Cheerful' : capturedEmotion === 'sad' ? '😢 Sad / Depressed' : capturedEmotion === 'astonished' ? '😲 Astonished' : '😐 Neutral'}
+                  </p>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="glass-card !p-8 flex flex-col items-center gap-4 text-center">
-              <Loader size={32} className="text-teal-400 animate-spin" />
-              <p className="text-white/60 text-sm">Analyzing your health information...</p>
+
+            {/* AI Diagnosis Insights */}
+            <div className="glass-card !p-5 flex flex-col gap-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles size={20} className="text-teal-400" />
+                <h3 className="text-xl font-black">AI Diagnosis Analysis</h3>
+              </div>
+
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+                  <Loader size={36} className="text-teal-400 animate-spin" />
+                  <p className="text-white/60 text-sm">Connecting to OpenRouter...</p>
+                  <p className="text-[10px] text-white/40 max-w-[200px]">Generating medical assessment based on your facial indicators.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-white/5 rounded-2xl p-4 border border-white/10 font-sans leading-relaxed text-sm text-white/95 whitespace-pre-wrap">
+                    {diagnosis}
+                  </div>
+
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-2.5">
+                    <Heart size={16} className="text-red-400 mt-0.5 flex-shrink-0 animate-pulse" />
+                    <p className="text-[11px] text-red-200 leading-normal">
+                      <strong>Medical Disclaimer:</strong> This assessment is automatically generated based on computer-vision facial state analysis and does not constitute official clinical advice. Please visit a certified practitioner or hospital for actual diagnostic consultation.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={handleReset}
+                      className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw size={14} />
+                      Scan Again
+                    </button>
+                    <button
+                      onClick={() => navigate('/health')}
+                      className="flex-1 py-3 bg-teal-500 hover:bg-teal-400 text-teal-950 rounded-xl font-bold text-sm transition-all"
+                    >
+                      Return to Health
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
-          )}
+          </div>
         </motion.div>
       )}
     </div>

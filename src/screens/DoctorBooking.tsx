@@ -23,6 +23,43 @@ export default function DoctorBooking() {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
+  const [sendViaWhatsApp, setSendViaWhatsApp] = useState(true);
+  const [sendViaSMS, setSendViaSMS] = useState(false);
+
+  // Vitals parsing to detect crucial state (e.g. Heart Rate >100 or <60, High Blood Pressure)
+  const isVitalsCrucial = useMemo(() => {
+    let hrVal: number | null = null;
+    const vitalEntry = healthResults.find(r => r.type === 'vitals');
+    const deviceEntry = healthResults.find(r => r.type === 'device');
+    
+    if (vitalEntry && vitalEntry.data) {
+      const v = vitalEntry.data.vitals || vitalEntry.data;
+      if (v.heartRate) hrVal = Number(v.heartRate);
+      else if (v.heart_rate?.value) hrVal = Number(v.heart_rate.value);
+    }
+    if (deviceEntry && deviceEntry.data) {
+      const dev = deviceEntry.data.device || deviceEntry.data;
+      if (dev.heartRate && !hrVal) hrVal = Number(dev.heartRate);
+    }
+
+    let bpSystolic: number | null = null;
+    let bpDiastolic: number | null = null;
+    if (deviceEntry && deviceEntry.data) {
+      const dev = deviceEntry.data.device || deviceEntry.data;
+      if (dev.bloodPressure) {
+        const parts = String(dev.bloodPressure).split('/');
+        if (parts.length === 2) {
+          bpSystolic = parseInt(parts[0], 10);
+          bpDiastolic = parseInt(parts[1], 10);
+        }
+      }
+    }
+
+    const isHrCrucial = hrVal !== null && (hrVal > 100 || hrVal < 60);
+    const isBpCrucial = (bpSystolic !== null && bpSystolic > 140) || (bpDiastolic !== null && bpDiastolic > 90);
+
+    return isHrCrucial || isBpCrucial;
+  }, [healthResults]);
 
   // Dynamically generated report summary
   const healthSummaryText = useMemo(() => {
@@ -83,7 +120,7 @@ export default function DoctorBooking() {
     const totalWorkouts = exerciseLogs ? exerciseLogs.length : 0;
     const lastWorkout = exerciseLogs && exerciseLogs.length > 0 ? exerciseLogs[0] : null;
 
-    return `LIFESYNC AI HEALTH REPORT SUMMARY
+    const baseText = `LIFESYNC AI HEALTH REPORT SUMMARY
 ---------------------------------------------
 Generated: ${new Date().toLocaleString()}
 
@@ -107,7 +144,13 @@ Generated: ${new Date().toLocaleString()}
    - Device Monitoring: ${deviceEntry ? 'Connected & Synced' : 'No device connected'}
 ---------------------------------------------
 This report summary was generated using the local, secure LifeSync AI tracking database.`;
-  }, [healthResults, bmiLogs, exerciseLogs]);
+
+    const warning = isVitalsCrucial
+      ? `🚨 CRITICAL HEALTH ALERT: Patient status crucial. Please review immediately. Urgent hospital visit may be required.\n\n`
+      : '';
+
+    return warning + baseText;
+  }, [healthResults, bmiLogs, exerciseLogs, isVitalsCrucial]);
 
   const handleBookAppointment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,6 +165,16 @@ This report summary was generated using the local, secure LifeSync AI tracking d
   };
 
   const handleSendReport = () => {
+    if (sendViaWhatsApp) {
+      const cleanPhone = selectedDoc.phone.replace(/[^0-9]/g, '');
+      const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(healthSummaryText)}`;
+      window.open(waUrl, '_blank');
+    }
+    
+    if (sendViaSMS) {
+      alert(`[Demo SMS Simulation] A text message has been queued to send to ${selectedDoc.name}'s phone (${selectedDoc.phone}).`);
+    }
+
     alert(`Report sent successfully to ${selectedDoc.name}!`);
     setReportModalOpen(false);
   };
@@ -313,8 +366,30 @@ This report summary was generated using the local, secure LifeSync AI tracking d
                 Preview the dynamic health summary report generated from your recent vitals scans, workouts, and metric logs before sharing it with <strong>{selectedDoc.name}</strong>.
               </p>
 
-              <div className="flex-1 overflow-y-auto bg-black/30 border border-white/10 rounded-2xl p-4 mb-6 font-mono text-xs text-teal-300 whitespace-pre-wrap leading-relaxed shadow-inner max-h-[40vh]">
+              <div className="flex-1 overflow-y-auto bg-black/30 border border-white/10 rounded-2xl p-4 mb-4 font-mono text-xs text-teal-300 whitespace-pre-wrap leading-relaxed shadow-inner max-h-[35vh]">
                 {healthSummaryText}
+              </div>
+
+              {/* Delivery Channels */}
+              <div className="flex flex-col gap-2.5 mb-6 bg-white/5 border border-white/10 rounded-2xl p-4 flex-shrink-0">
+                <label className="flex items-center gap-3 cursor-pointer select-none text-xs text-white/80">
+                  <input
+                    type="checkbox"
+                    checked={sendViaWhatsApp}
+                    onChange={(e) => setSendViaWhatsApp(e.target.checked)}
+                    className="w-4 h-4 rounded accent-teal-500 cursor-pointer"
+                  />
+                  <span>Send report summary via <strong>WhatsApp</strong> (Opens WhatsApp web/app)</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer select-none text-xs text-white/80">
+                  <input
+                    type="checkbox"
+                    checked={sendViaSMS}
+                    onChange={(e) => setSendViaSMS(e.target.checked)}
+                    className="w-4 h-4 rounded accent-teal-500 cursor-pointer"
+                  />
+                  <span>Send report summary via <strong>SMS Text Message</strong> (Demo Simulation)</span>
+                </label>
               </div>
 
               <div className="flex gap-2 flex-shrink-0">

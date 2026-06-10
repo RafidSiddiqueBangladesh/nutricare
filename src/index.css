@@ -161,11 +161,11 @@
 
 /* Facility Details Modal - High Z-Index and Centered */
 .facility-modal-overlay {
-  z-index: 200;
+  z-index: 9999;
 }
 
 .facility-modal-content {
-  z-index: 210;
+  z-index: 10000;
   position: fixed;
   top: 50%;
   left: 50%;

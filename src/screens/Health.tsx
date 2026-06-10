@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, Hospital, Ambulance, Store, Phone, Activity, Calculator, History, Sparkles, MapPin, ChevronRight } from 'lucide-react';
+import { Heart, Hospital, Ambulance, Store, Phone, Activity, Calculator, History, Sparkles, MapPin, ChevronRight, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,6 +13,7 @@ const TOOLS = [
   { icon: History, label: 'Health Results History', path: '/health/history' },
   { icon: Sparkles, label: 'AI Diagnosis', path: '/health/diagnosis' },
   { icon: Sparkles, label: 'Mood Suggestions', path: '/health/mood' },
+  { icon: FileText, label: 'Prescription Upload & Analysis', path: '/health/prescription' },
 ];
 
 export default function Health() {
