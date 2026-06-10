@@ -225,35 +225,45 @@ export default function PhysicalDeviceMonitor() {
 
     demoRunningRef.current = true;
     updateState({ demoRunning: true, status: 'Running demo mode with watch-style readings.', statusTone: 'busy' });
-    let step = 0;
 
-    const tick = () => {
+    // Step 1: At 2s, Update Heart Rate
+    demoTimer.current = window.setTimeout(() => {
       if (!demoRunningRef.current) return;
-      step += 1;
-      const phase = step % 8;
+      
+      const heartRate = hrPool[Math.floor(Math.random() * hrPool.length)];
+      handleIncomingBytes([0xAB, 0x00, 0x05, 0xFF, 0x91, 0x80, 0x00, heartRate - 52], 'NUS');
 
-      if (phase === 4) {
+      // Step 2: At 6s total (4s more), Update Glucose
+      demoTimer.current = window.setTimeout(() => {
+        if (!demoRunningRef.current) return;
+        
         handleIncomingBytes([0xAB, 0x00, 0x03, 0xFF, 0xC7, 0x01], 'NUS');
-        window.setTimeout(() => {
+        
+        // Wait 100ms for the warmup state to register, then send glucose
+        demoTimer.current = window.setTimeout(() => {
           if (!demoRunningRef.current) return;
+          
           const glucose = glucosePool[Math.floor(Math.random() * glucosePool.length)];
           const glucoseByte = Math.round(glucose / 0.25);
           handleIncomingBytes([0xAB, 0x00, 0x05, 0xFF, 0x91, 0x80, 0x00, glucoseByte], 'NUS');
-          window.setTimeout(() => {
+
+          // Step 3: At 10s total (4s more), Update Blood Pressure / finish
+          demoTimer.current = window.setTimeout(() => {
             if (!demoRunningRef.current) return;
+            
             const [sys, dia] = bpPool[Math.floor(Math.random() * bpPool.length)];
             handleIncomingBytes([0xAB, 0x00, 0x05, 0xFF, 0x91, 0x80, dia, sys - 52], 'NUS');
-          }, 1200);
-        }, 900);
-      } else {
-        const heartRate = hrPool[Math.floor(Math.random() * hrPool.length)];
-        handleIncomingBytes([0xAB, 0x00, 0x05, 0xFF, 0x91, 0x80, 0x00, heartRate - 52], 'NUS');
-      }
 
-      demoTimer.current = window.setTimeout(tick, phase === 4 ? 3200 : 1900);
-    };
+            // Finish demo
+            demoRunningRef.current = false;
+            updateState({ demoRunning: false, status: 'Demo completed successfully.', statusTone: 'idle' });
+          }, 3900); // 3900ms + 100ms = 4000ms after step 2 start
 
-    tick();
+        }, 100);
+
+      }, 4000);
+
+    }, 2000);
   };
 
   const clearLog = () => {

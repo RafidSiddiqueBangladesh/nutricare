@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, User, Calendar, Phone, Video, Send, FileText } from 'lucide-react';
-import { motion } from 'motion/react';
+import { ChevronLeft, User, Calendar, Phone, Video, Send, FileText, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 
 const DOCTORS = [
   { id: 1, name: 'Dr. Sarah Ahmed', specialty: 'Cardiology', hospital: 'City Care Hospital', schedule: '10:00 AM - 1:00 PM', fee: '900 BDT', phone: '+8801711000001' },
@@ -10,6 +11,120 @@ const DOCTORS = [
 
 export default function DoctorBooking() {
   const navigate = useNavigate();
+
+  // Local storage inputs
+  const [healthResults] = useLocalStorage<any[]>('health-results', []);
+  const [bmiLogs] = useLocalStorage<any[]>('health-metrics', []);
+  const [exerciseLogs] = useLocalStorage<any[]>('exercise-logs', []);
+
+  // Modal States
+  const [selectedDoc, setSelectedDoc] = useState<any>(null);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [appointmentDate, setAppointmentDate] = useState('');
+  const [appointmentTime, setAppointmentTime] = useState('');
+
+  // Dynamically generated report summary
+  const healthSummaryText = useMemo(() => {
+    let latestWeight = '--';
+    let latestHeight = '--';
+    let latestBMI = '--';
+    let latestBMICategory = '--';
+
+    if (bmiLogs && bmiLogs.length > 0) {
+      const latest = bmiLogs[bmiLogs.length - 1];
+      if (latest.weight) latestWeight = `${latest.weight} kg`;
+      if (latest.height) latestHeight = `${latest.height} cm`;
+      if (latest.bmi) {
+        latestBMI = Number(latest.bmi).toFixed(1);
+        if (latest.bmi < 18.5) latestBMICategory = 'Underweight';
+        else if (latest.bmi < 25) latestBMICategory = 'Normal';
+        else if (latest.bmi < 30) latestBMICategory = 'Overweight';
+        else latestBMICategory = 'Obese';
+      }
+    } else {
+      const bmiEntry = healthResults.find(r => r.type === 'bmi');
+      if (bmiEntry && bmiEntry.data) {
+        if (bmiEntry.data.weight) latestWeight = `${bmiEntry.data.weight} kg`;
+        if (bmiEntry.data.height) latestHeight = `${bmiEntry.data.height} cm`;
+        if (bmiEntry.data.bmi) {
+          latestBMI = Number(bmiEntry.data.bmi).toFixed(1);
+          latestBMICategory = bmiEntry.data.category || '--';
+        }
+      }
+    }
+
+    const vitalEntry = healthResults.find(r => r.type === 'vitals');
+    const deviceEntry = healthResults.find(r => r.type === 'device');
+    
+    let heartRate = '--';
+    let respiratoryRate = '--';
+    let hrv = '--';
+    let bloodPressure = '--';
+
+    if (vitalEntry && vitalEntry.data) {
+      const v = vitalEntry.data.vitals || vitalEntry.data;
+      if (v.heartRate) heartRate = `${v.heartRate} bpm`;
+      else if (v.heart_rate?.value) heartRate = `${v.heart_rate.value} bpm`;
+      
+      if (v.respiratoryRate) respiratoryRate = `${v.respiratoryRate} /min`;
+      else if (v.respiratory_rate?.value) respiratoryRate = `${v.respiratory_rate.value} /min`;
+      
+      if (v.hrv) hrv = `${v.hrv} ms`;
+      else if (v.hrv?.value) hrv = `${v.hrv.value} ms`;
+    }
+
+    if (deviceEntry && deviceEntry.data) {
+      const dev = deviceEntry.data.device || deviceEntry.data;
+      if (dev.heartRate && heartRate === '--') heartRate = `${dev.heartRate} bpm`;
+      if (dev.bloodPressure) bloodPressure = dev.bloodPressure;
+    }
+
+    const totalWorkouts = exerciseLogs ? exerciseLogs.length : 0;
+    const lastWorkout = exerciseLogs && exerciseLogs.length > 0 ? exerciseLogs[0] : null;
+
+    return `LIFESYNC AI HEALTH REPORT SUMMARY
+---------------------------------------------
+Generated: ${new Date().toLocaleString()}
+
+1. ANTHROPOMETRIC METRICS
+   - Height: ${latestHeight}
+   - Weight: ${latestWeight}
+   - Calculated BMI: ${latestBMI} (${latestBMICategory})
+
+2. CARDIOVASCULAR & PHYSIOLOGICAL METRICS
+   - Heart Rate: ${heartRate}
+   - Blood Pressure: ${bloodPressure}
+   - Heart Rate Variability (HRV): ${hrv}
+   - Respiratory Rate: ${respiratoryRate}
+
+3. FITNESS & ACTIVITY STATUS
+   - Total Workouts Logged: ${totalWorkouts}
+   ${lastWorkout ? `- Last Workout: ${lastWorkout.name} (Duration: ${lastWorkout.duration}, Completed on ${new Date(lastWorkout.timestamp).toLocaleDateString()})` : '- No workouts logged recently'}
+
+4. LATEST TRACKING STATUS
+   - System Vitals Scan: ${vitalEntry ? 'Analyzed successfully' : 'Not scanned'}
+   - Device Monitoring: ${deviceEntry ? 'Connected & Synced' : 'No device connected'}
+---------------------------------------------
+This report summary was generated using the local, secure LifeSync AI tracking database.`;
+  }, [healthResults, bmiLogs, exerciseLogs]);
+
+  const handleBookAppointment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appointmentDate || !appointmentTime) {
+      alert('Please select a date and time.');
+      return;
+    }
+    alert(`Booking confirmed with ${selectedDoc.name} on ${appointmentDate} at ${appointmentTime}!`);
+    setBookingModalOpen(false);
+    setAppointmentDate('');
+    setAppointmentTime('');
+  };
+
+  const handleSendReport = () => {
+    alert(`Report sent successfully to ${selectedDoc.name}!`);
+    setReportModalOpen(false);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -61,14 +176,166 @@ export default function DoctorBooking() {
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <ActionButton icon={Calendar} label="Book Doctor" onClick={() => {}} />
-              <ActionButton icon={Send} label="Send Report" onClick={() => {}} />
+              <ActionButton 
+                icon={Calendar} 
+                label="Book Doctor" 
+                onClick={() => {
+                  setSelectedDoc(doc);
+                  setBookingModalOpen(true);
+                }} 
+              />
+              <ActionButton 
+                icon={Send} 
+                label="Send Report" 
+                onClick={() => {
+                  setSelectedDoc(doc);
+                  setReportModalOpen(true);
+                }} 
+              />
               <ActionButton icon={Video} label="Video Call" onClick={() => navigate(`/video-call/${doc.id}`)} />
               <ActionButton icon={Phone} label="Call Doctor" onClick={() => window.location.href = `tel:${doc.phone}`} />
             </div>
           </motion.div>
         ))}
       </div>
+
+      {/* Booking Modal */}
+      <AnimatePresence>
+        {bookingModalOpen && selectedDoc && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setBookingModalOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md bg-[#002b2b] border border-teal-500/30 rounded-3xl p-6 shadow-2xl z-50 text-white"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <Calendar className="text-teal-400" size={20} />
+                  Book Appointment
+                </h3>
+                <button 
+                  onClick={() => setBookingModalOpen(false)}
+                  className="p-1.5 hover:bg-white/10 rounded-full transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="bg-teal-500/10 border border-teal-500/20 rounded-2xl p-4 mb-6">
+                <p className="text-sm font-bold text-teal-300">{selectedDoc.name}</p>
+                <p className="text-xs text-white/60 mb-2">{selectedDoc.specialty} • {selectedDoc.hospital}</p>
+                <p className="text-[11px] text-white/50">Available: {selectedDoc.schedule}</p>
+                <p className="text-[11px] text-white/50">Fee: {selectedDoc.fee}</p>
+              </div>
+
+              <form onSubmit={handleBookAppointment} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-2">Select Date</label>
+                  <input 
+                    type="date"
+                    required
+                    value={appointmentDate}
+                    onChange={(e) => setAppointmentDate(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-400 transition-all text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-2">Select Time Slot</label>
+                  <input 
+                    type="time"
+                    required
+                    value={appointmentTime}
+                    onChange={(e) => setAppointmentTime(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-400 transition-all text-white"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button 
+                    type="button"
+                    onClick={() => setBookingModalOpen(false)}
+                    className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold text-sm transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="flex-1 py-3 bg-teal-500 hover:bg-teal-400 text-teal-950 rounded-xl font-bold text-sm transition-all"
+                  >
+                    Confirm Booking
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Send Report Modal */}
+      <AnimatePresence>
+        {reportModalOpen && selectedDoc && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setReportModalOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-lg bg-[#002b2b] border border-teal-500/30 rounded-3xl p-6 shadow-2xl z-50 text-white max-h-[85vh] flex flex-col"
+            >
+              <div className="flex justify-between items-center mb-4 flex-shrink-0">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <FileText className="text-teal-400" size={20} />
+                  Send Health Report
+                </h3>
+                <button 
+                  onClick={() => setReportModalOpen(false)}
+                  className="p-1.5 hover:bg-white/10 rounded-full transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <p className="text-xs text-white/60 mb-4 flex-shrink-0">
+                Preview the dynamic health summary report generated from your recent vitals scans, workouts, and metric logs before sharing it with <strong>{selectedDoc.name}</strong>.
+              </p>
+
+              <div className="flex-1 overflow-y-auto bg-black/30 border border-white/10 rounded-2xl p-4 mb-6 font-mono text-xs text-teal-300 whitespace-pre-wrap leading-relaxed shadow-inner max-h-[40vh]">
+                {healthSummaryText}
+              </div>
+
+              <div className="flex gap-2 flex-shrink-0">
+                <button 
+                  onClick={() => setReportModalOpen(false)}
+                  className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-bold text-sm transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleSendReport}
+                  className="flex-1 py-3 bg-teal-500 hover:bg-teal-400 text-teal-950 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
+                >
+                  <Send size={14} />
+                  Send Health Report
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

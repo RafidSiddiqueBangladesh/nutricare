@@ -417,7 +417,7 @@ export default function HospitalMap() {
                 <h4 className="font-bold text-sm leading-tight max-w-[200px]">{item.name}</h4>
                 <p className="text-[10px] text-white/40 mt-1 uppercase font-bold">{item.district}</p>
                 <p className="text-[10px] text-white/60 leading-tight mt-0.5">
-                  {activeTab === 'hospital' && `👨‍⚕️ ${item.totalDoctors} Doctors`}
+                  {activeTab === 'hospital' && `👨‍⚕️ ${(item as any).totalDoctors} Doctors`}
                   {activeTab === 'medicine' && `💊 ${(item as any).medicines?.slice(0,2).join(', ') || 'Medicines'}`}
                   {activeTab === 'ambulance' && `🚑 ${(item as any).availability || '24/7'}`}
                 </p>
