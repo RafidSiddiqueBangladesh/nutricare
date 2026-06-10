@@ -4,9 +4,7 @@ import { ChevronLeft, Sparkles, Brain, Play, Loader2, RefreshCw } from 'lucide-r
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '@/src/contexts/ThemeContext';
 
-// OpenRouter API key (same backend approach - goes through env or falls back to hardcoded for dev)
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const OPENROUTER_API_KEY = (import.meta as any).env?.VITE_OPENROUTER_API_KEY || '';
+import { apiService } from '@/src/services/api';
 
 type MoodType = 'Happy' | 'Sad' | 'Neutral' | 'Astonished';
 
@@ -50,24 +48,11 @@ Give them a short, warm, actionable 3-step wellness plan in plain text.
 Format: numbered list 1. 2. 3. each max 1 sentence. Be empathetic and practical.`;
 
   try {
-    const res = await fetch(OPENROUTER_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'LifeSync AI',
-      },
-      body: JSON.stringify({
-        model: 'openai/gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 200,
-      }),
-    });
-
-    if (!res.ok) throw new Error(`OpenRouter error ${res.status}`);
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content?.trim() || '';
+    const res = await apiService.chat(prompt);
+    if (res.success && res.data?.text) {
+      return res.data.text.trim();
+    }
+    throw new Error(res.message || 'Failed to get AI response');
   } catch (err) {
     console.error('AI suggestion error:', err);
     return '';
@@ -120,7 +105,7 @@ export default function MoodSuggestions() {
       // fallback
       setUsedFallback(true);
       setAiText(FALLBACK_SUGGESTIONS[mood].map((s, i) => `${i + 1}. ${s}`).join('\n'));
-      setAiError(!OPENROUTER_API_KEY ? 'No OpenRouter API key found — using built-in suggestions.' : 'AI unavailable — showing built-in suggestions.');
+      setAiError('AI unavailable — showing built-in suggestions.');
     }
   };
 

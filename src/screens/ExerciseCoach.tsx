@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { ChevronLeft, Timer, Play, CheckCircle, Video, Info, Camera, AlertCircle, Pause } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import PoseDetector, { PoseDetectionResult } from '@/src/components/PoseDetector';
+import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 
 const EXERCISE_VIDEOS: Record<string, string> = {
   'push-ups': 'https://www.youtube.com/embed/IODxDxX7oi4?autoplay=0&modestbranding=1&rel=0',
@@ -14,10 +15,13 @@ const EXERCISE_VIDEOS: Record<string, string> = {
 export default function ExerciseCoach() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [timeLeft, setTimeLeft] = useState(300); // 5 mins
+  const [timeLeft, setTimeLeft] = useState(600); // 10 mins
   const [isActive, setIsActive] = useState(true);
   const [showCamera, setShowCamera] = useState(false);
   const [poseData, setPoseData] = useState<PoseDetectionResult | null>(null);
+
+  const [logs, setLogs] = useLocalStorage<any[]>('exercise-logs', []);
+  const [healthResults, setHealthResults] = useLocalStorage<any[]>('health-results', []);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -169,6 +173,31 @@ export default function ExerciseCoach() {
           <button
             onClick={() => {
               setIsActive(false);
+              // Save to exercise-logs
+              const newLog = {
+                id: crypto.randomUUID(),
+                exerciseId: id || 'exercise',
+                name: title,
+                duration: '10 min',
+                timestamp: Date.now(),
+                completed: true
+              };
+              setLogs([newLog, ...logs]);
+
+              // Save to health-results
+              const newResult = {
+                id: crypto.randomUUID(),
+                type: 'pose',
+                timestamp: new Date().toISOString(),
+                data: {
+                  exerciseType: title,
+                  duration: Math.max(600 - timeLeft, 10),
+                  repCount: poseData?.repCount || 10,
+                  formScore: poseData?.formScore || 95
+                }
+              };
+              setHealthResults([newResult, ...healthResults]);
+
               navigate('/exercises');
             }}
             className="px-4 py-4 rounded-xl bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold shadow-2xl"

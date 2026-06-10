@@ -8,9 +8,7 @@ import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 import { InventoryItem } from '@/src/types';
 import { cn, formatCurrency, formatDate } from '@/src/lib/utils';
 
-// Recipe YouTube search via public YouTube Data API
-// Replace with your own key in .env as VITE_YOUTUBE_API_KEY
-const YT_API_KEY = (import.meta as any).env?.VITE_YOUTUBE_API_KEY || '';
+import { apiService } from '@/src/services/api';
 
 interface YouTubeVideo {
   id: string;
@@ -21,24 +19,20 @@ interface YouTubeVideo {
 
 async function searchYouTubeRecipes(ingredients: string[]): Promise<YouTubeVideo[]> {
   if (!ingredients.length) return [];
-  const query = encodeURIComponent(`${ingredients.slice(0, 4).join(' ')} recipe cooking`);
+  const query = `${ingredients.slice(0, 4).join(' ')} recipe cooking`;
 
-  // Use YouTube Data API if key available, otherwise fall back to no-key embed search
-  if (YT_API_KEY) {
-    try {
-      const res = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&maxResults=4&key=${YT_API_KEY}`
-      );
-      const data = await res.json();
-      return (data.items || []).map((item: any) => ({
-        id: item.id.videoId,
-        title: item.snippet.title,
-        channel: item.snippet.channelTitle,
-        thumbnail: item.snippet.thumbnails?.medium?.url || `https://img.youtube.com/vi/${item.id.videoId}/mqdefault.jpg`,
+  try {
+    const res = await apiService.searchYouTubeVideos(query, 4);
+    if (res.success && Array.isArray(res.data)) {
+      return res.data.map((item: any) => ({
+        id: item.videoId,
+        title: item.title,
+        channel: item.channelTitle || 'YouTube',
+        thumbnail: item.thumbnail || `https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`,
       }));
-    } catch (err) {
-      console.error('YouTube API error:', err);
     }
+  } catch (err) {
+    console.error('YouTube API error:', err);
   }
 
   // Fallback: curated recipe video IDs when no API key
@@ -221,9 +215,6 @@ export default function Cooking() {
             {videosError && (
               <div className="glass-card text-center py-4 text-amber-400 text-sm">
                 ⚠️ {videosError}
-                {!YT_API_KEY && (
-                  <p className="text-white/40 text-xs mt-2">Add VITE_YOUTUBE_API_KEY to .env for live search</p>
-                )}
               </div>
             )}
 

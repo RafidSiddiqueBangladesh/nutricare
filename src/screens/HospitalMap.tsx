@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Hospital, Search, Map as MapIcon, Phone, Globe, Navigation, Heart, MapPin, AlertCircle, Pill, Ambulance, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { HOSPITALS_64, MEDICINE_SHOPS_64, AMBULANCES_64 } from '@/src/data/facilitiesData';
@@ -15,6 +15,14 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
+
+function ChangeView({ center, zoom }: { center: [number, number], zoom: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
+}
 
 // District list for all 64 districts of Bangladesh
 const ALL_DISTRICTS = [
@@ -38,6 +46,7 @@ export default function HospitalMap() {
   const [userLocation, setUserLocation] = useState<string | null>(null);
   const [requestingLocation, setRequestingLocation] = useState(false);
   const [showDistrictSelector, setShowDistrictSelector] = useState(false);
+  const [currentUserCoords, setCurrentUserCoords] = useState<[number, number] | null>(null);
 
   // Get current data based on active tab
   const getData = () => {
@@ -61,14 +70,28 @@ export default function HospitalMap() {
     return matchesSearch && matchesLocation;
   });
 
+  // Fallback centering on district selection
+  useEffect(() => {
+    if (userLocation) {
+      const dataForTab = getData();
+      const districtFacilities = dataForTab.filter(item => item.district === userLocation);
+      if (districtFacilities.length > 0) {
+        const firstFac = districtFacilities[0];
+        setMapCenter([firstFac.lat, firstFac.lng]);
+        setMapZoom(12);
+      }
+    }
+  }, [userLocation, activeTab]);
+
   // Request user location
   const requestLocation = () => {
     setRequestingLocation(true);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          // For now, default to Dhaka area
-          setMapCenter([position.coords.latitude, position.coords.longitude]);
+          const coords: [number, number] = [position.coords.latitude, position.coords.longitude];
+          setCurrentUserCoords(coords);
+          setMapCenter(coords);
           setMapZoom(13);
           setRequestingLocation(false);
         },
@@ -79,6 +102,46 @@ export default function HospitalMap() {
         }
       );
     }
+  };
+
+  const createUserLocationIcon = () => {
+    return L.divIcon({
+      className: 'user-location-marker',
+      html: `
+        <div style="position: relative; width: 20px; height: 20px;">
+          <div style="
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: #3b82f6;
+            border: 2px solid white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            box-shadow: 0 0 6px rgba(0,0,0,0.4);
+            z-index: 10;
+          "></div>
+          <div style="
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: rgba(59, 130, 246, 0.4);
+            border-radius: 50%;
+            top: 0;
+            left: 0;
+            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.610, 0.355, 1) infinite;
+          "></div>
+        </div>
+        <style>
+          @keyframes pulse-ring {
+            0% { transform: scale(0.7); opacity: 1; }
+            100% { transform: scale(2.5); opacity: 0; }
+          }
+        </style>
+      `,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+    });
   };
 
   const getTabIcon = () => {
@@ -287,16 +350,33 @@ export default function HospitalMap() {
           style={{ height: '100%', width: '100%' }}
           zoomControl={true}
         >
+          <ChangeView center={mapCenter} zoom={mapZoom} />
           <TileLayer
             attribution='&copy; OpenStreetMap'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           
+          {currentUserCoords && (
+            <Marker 
+              position={currentUserCoords} 
+              icon={createUserLocationIcon()}
+              zIndexOffset={9999}
+            >
+              <Popup>
+                <div className="p-2 text-center">
+                  <h4 className="font-bold text-sm">Your Location</h4>
+                  <p className="text-[10px] text-gray-500">Acquired via GPS</p>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+
           {filteredData.map((item) => (
             <Marker
               key={item.id}
               position={[item.lat, item.lng]}
               icon={createMarkerIcon(activeTab, selected?.id === item.id)}
+              zIndexOffset={selected?.id === item.id ? 1000 : 0}
               eventHandlers={{
                 click: () => handleItemClick(item),
               }}

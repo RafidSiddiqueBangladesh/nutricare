@@ -25,6 +25,7 @@ type VitalLensClient = {
   startVideoStream: () => Promise<void> | void;
   close: () => Promise<void> | void;
   addEventListener: (eventName: string, callback: (result: any) => void) => void;
+  setVideoStream?: (stream: MediaStream, videoElement: HTMLVideoElement) => void;
 };
 
 interface VitalsData {
@@ -139,14 +140,28 @@ export default function VitalLensMonitor() {
 
     client.addEventListener('vitals', onVitals);
 
+    let activeStream: MediaStream | null = null;
+
     const start = async () => {
       setStreamError(null);
       setStreaming(true);
       try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        activeStream = stream;
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+
+        if (client && typeof client.setVideoStream === 'function') {
+          client.setVideoStream(stream, videoRef.current!);
+        }
+
         await client.startVideoStream();
       } catch (err: any) {
         setStreaming(false);
         setStreamError(`Stream error: ${err?.message || 'Unknown error'}`);
+        console.error('VitalLens stream error:', err);
       }
     };
 
@@ -154,6 +169,9 @@ export default function VitalLensMonitor() {
 
     return () => {
       clientRef.current = null;
+      if (activeStream) {
+        activeStream.getTracks().forEach(track => track.stop());
+      }
       Promise.resolve(client?.close?.()).catch(() => undefined);
     };
   }, [scriptReady, proxyUrl, saveUrl]);

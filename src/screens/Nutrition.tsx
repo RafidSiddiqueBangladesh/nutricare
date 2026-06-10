@@ -404,12 +404,12 @@ export default function Nutrition() {
               transition={{ delay: i * 0.1 }}
               className="p-4 bg-white/5 rounded-2xl border border-white/5 flex gap-4 items-center"
             >
-              <span className="primary-color/30 primary-text px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide">
+              <span className="primary-color/30 primary-text px-4 py-1.5 rounded-full text-sm font-black uppercase tracking-wide">
                 {item.tag}
               </span>
               <div>
-                <h4 className="font-bold text-base leading-snug">{item.title}</h4>
-                <p className="text-sm text-white/65 leading-relaxed">{item.desc}</p>
+                <h4 className="font-bold text-lg leading-snug">{item.title}</h4>
+                <p className="text-base text-white/75 leading-relaxed">{item.desc}</p>
               </div>
             </motion.div>
           ))}
@@ -430,13 +430,13 @@ export default function Nutrition() {
             { instead: 'Limited variety in meals', try: 'Include tomatoes.', benefit: 'Adds vitamins and antioxidants.' },
           ].map((item, i) => (
             <div key={i} className="p-4 bg-white/5 rounded-2xl border border-white/5">
-              <p className="text-sm mb-2 leading-relaxed">
+              <p className="text-base mb-2 leading-relaxed">
                 <span className="font-black opacity-100">Instead Of:</span> <span className="opacity-70">{item.instead}</span>
               </p>
-              <p className="text-sm mb-2 leading-relaxed">
+              <p className="text-base mb-2 leading-relaxed">
                 <span className="font-black opacity-100">Try:</span> <span className="opacity-70">{item.try}</span>
               </p>
-              <p className="text-sm primary-text/85 italic leading-relaxed">{item.benefit}</p>
+              <p className="text-base font-semibold primary-text/95 italic leading-relaxed">{item.benefit}</p>
             </div>
           ))}
         </div>

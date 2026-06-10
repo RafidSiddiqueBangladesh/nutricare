@@ -1,5 +1,5 @@
-import React from 'react';
-import { Dumbbell, Play, CheckCircle, Video, Activity, Zap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Dumbbell, Play, CheckCircle, Video, Activity, Zap, Timer } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 import { ExerciseLog } from '@/src/types';
@@ -32,7 +32,63 @@ const EXERCISES = [
 
 export default function Exercise() {
   const navigate = useNavigate();
-  const [logs] = useLocalStorage<ExerciseLog[]>('exercise-logs', []);
+  const [logs, setLogs] = useLocalStorage<any[]>('exercise-logs', []);
+  const [healthResults, setHealthResults] = useLocalStorage<any[]>('health-results', []);
+
+  // Timer states
+  const [activeTimerExId, setActiveTimerExId] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(600); // 10 minutes (600s)
+  const [timerRunning, setTimerRunning] = useState<boolean>(false);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timerRunning && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            setTimerRunning(false);
+            return 600;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timerRunning, timeLeft]);
+
+  const handleMarkDone = (exId: string) => {
+    setTimerRunning(false);
+    setActiveTimerExId(null);
+    setTimeLeft(600);
+
+    const ex = EXERCISES.find(e => e.id === exId);
+    if (!ex) return;
+
+    // 1. Save to exercise logs
+    const newLog = {
+      id: crypto.randomUUID(),
+      exerciseId: ex.id,
+      name: ex.title,
+      duration: '10 min',
+      timestamp: Date.now(),
+      completed: true
+    };
+    setLogs([newLog, ...logs]);
+
+    // 2. Save to health snapshot results
+    const newResult = {
+      id: crypto.randomUUID(),
+      type: 'pose',
+      timestamp: new Date().toISOString(),
+      data: {
+        exerciseType: ex.title,
+        duration: 600,
+        repCount: 10,
+        formScore: 95
+      }
+    };
+    setHealthResults([newResult, ...healthResults]);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -44,6 +100,23 @@ export default function Exercise() {
           <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
         </div>
       </div>
+
+      {timerRunning && activeTimerExId && (
+        <div className="glass-card border border-teal-500/30 bg-teal-500/10 !p-4 flex items-center justify-between animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400">
+              <Activity size={20} className="animate-spin" style={{ animationDuration: '4s' }} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-teal-200">Active Session: {EXERCISES.find(e => e.id === activeTimerExId)?.title}</p>
+              <p className="text-xs text-white/50">Completed workout will log as 10 minutes</p>
+            </div>
+          </div>
+          <div className="text-2xl font-black text-teal-400 font-mono">
+            {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-6">
         {EXERCISES.map((ex, i) => (
@@ -80,13 +153,21 @@ export default function Exercise() {
 
             <div className="flex gap-2">
               <button 
-                onClick={() => navigate(`/exercises/coach/${ex.id}`)}
+                onClick={() => {
+                  setActiveTimerExId(ex.id);
+                  setTimeLeft(600);
+                  setTimerRunning(true);
+                  navigate(`/exercises/coach/${ex.id}`);
+                }}
                 className="flex-1 py-2 bg-blue-500 hover:bg-blue-400 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
               >
                 <Video size={14} />
                 Start Coach
               </button>
-              <button className="flex-1 py-2 bg-teal-500 hover:bg-teal-400 text-teal-950 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20">
+              <button 
+                onClick={() => handleMarkDone(ex.id)}
+                className="flex-1 py-2 bg-teal-500 hover:bg-teal-400 text-teal-950 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20"
+              >
                 <CheckCircle size={14} />
                 Mark Done
               </button>

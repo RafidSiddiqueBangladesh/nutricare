@@ -61,6 +61,7 @@ interface HealthResult {
     category?: string;
     vitals?: any;
     confidence?: number;
+    details?: any;
   };
 }
 
@@ -93,6 +94,29 @@ export default function Profile() {
       hrv:              r.data.hrv ?? r.data.vitals?.hrv?.value ?? null,
       timestamp:        r.timestamp,
     };
+  }, [healthResults]);
+
+  const latestHeartRate = useMemo(() => {
+    const vitalsHR = latestVitals?.heartRate;
+    const deviceHRResults = healthResults
+      .filter(r => r.type === 'device' && r.data.details?.metric === 'heart_rate')
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const deviceHR = deviceHRResults.length ? (deviceHRResults[0].data.details?.value ?? null) : null;
+
+    if (vitalsHR && deviceHR) {
+      const vitalsTime = new Date(latestVitals!.timestamp).getTime();
+      const deviceTime = new Date(deviceHRResults[0].timestamp).getTime();
+      return vitalsTime > deviceTime ? vitalsHR : deviceHR;
+    }
+    return vitalsHR ?? deviceHR ?? null;
+  }, [healthResults, latestVitals]);
+
+  const latestGlucose = useMemo(() => {
+    const deviceResults = healthResults
+      .filter(r => r.type === 'device' && r.data.details?.metric === 'glucose')
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    if (!deviceResults.length) return null;
+    return deviceResults[0].data.details?.value ?? null;
   }, [healthResults]);
 
   const latestBmi = useMemo(() => {
@@ -293,8 +317,8 @@ export default function Profile() {
           <div className="grid grid-cols-2 gap-3">
             {[
               { icon: <HeartPulse size={12} />, label: 'BMI', value: latestBmi?.bmi ? Number(latestBmi.bmi).toFixed(1) : (display.bmi ?? '--'), sub: latestBmi?.category, color: `hsl(${ph},70%,65%)` },
-              { icon: <Award size={12} />, label: 'Height', value: display.heightCm ? `${display.heightCm} cm` : '--', color: 'hsl(160,70%,60%)' },
-              { icon: <Weight size={12} />, label: 'Weight', value: display.weightKg ? `${display.weightKg} kg` : '--', color: 'hsl(20,70%,65%)' },
+              { icon: <Heart size={12} />, label: 'Heart Rate', value: latestHeartRate ? `${latestHeartRate} bpm` : '--', color: 'hsl(350,80%,65%)' },
+              { icon: <Activity size={12} />, label: 'Glucose', value: latestGlucose ? `${latestGlucose} mmol/L` : '--', color: 'hsl(150,70%,60%)' },
               { icon: <Ruler size={12} />, label: 'BMI Cat.', value: latestBmi?.category || '--', color: 'hsl(280,70%,70%)' },
             ].map(card => (
               <div
@@ -308,45 +332,6 @@ export default function Profile() {
               </div>
             ))}
           </div>
-        )}
-      </section>
-
-      {/* Heart rate & vitals from HealthResultsHistory */}
-      <section
-        className="glass-card p-4"
-        style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.08), rgba(251,113,133,0.06))' }}
-      >
-        <h3 className="text-sm font-bold uppercase tracking-wider mb-3 flex items-center gap-2 text-rose-300">
-          <Heart size={14} /> Latest Vitals
-        </h3>
-        {latestVitals ? (
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'Heart Rate', value: latestVitals.heartRate ? `${latestVitals.heartRate} bpm` : '--', color: 'text-rose-400' },
-              { label: 'Resp. Rate', value: latestVitals.respiratoryRate ? `${latestVitals.respiratoryRate} /min` : '--', color: 'text-pink-400' },
-              { label: 'HRV', value: latestVitals.hrv ? `${latestVitals.hrv} ms` : '--', color: 'text-red-300' },
-            ].map(v => (
-              <div key={v.label} className="bg-white/5 rounded-xl p-3 border border-white/10 text-center">
-                <p className="text-[10px] text-white/50 mb-1">{v.label}</p>
-                <p className={`font-black text-sm ${v.color}`}>{v.value}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-3">
-            <p className="text-sm text-white/40 italic">No vitals recorded yet</p>
-            <button
-              onClick={() => navigate('/health/vitallens')}
-              className="mt-2 text-xs font-bold px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-400/20 hover:bg-rose-500/30 transition-all"
-            >
-              Start Vitals Scan →
-            </button>
-          </div>
-        )}
-        {latestVitals && (
-          <p className="text-[10px] text-white/30 mt-2">
-            Last recorded: {new Date(latestVitals.timestamp).toLocaleString()}
-          </p>
         )}
       </section>
 
@@ -377,40 +362,46 @@ export default function Profile() {
 
       {/* Friend Requests */}
       <section
-        className="glass-card p-4"
-        style={{ borderColor: 'rgba(52,211,153,0.15)' }}
+        className="glass-card p-5 border shadow-xl"
+        style={{ borderColor: 'rgba(52,211,153,0.18)', background: `linear-gradient(135deg, hsl(${ph},40%,12%,0.2), rgba(0,0,0,0))` }}
       >
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-white/70 uppercase flex items-center gap-2 tracking-wider">
-            <Users size={14} /> Friend Requests
+        <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-2">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2 tracking-wider uppercase">
+            <Users size={16} className="text-emerald-400" /> Friend Requests
           </h3>
-          {socialLoading && <span className="text-[11px] text-white/40">Syncing…</span>}
+          {socialLoading && <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-white/40 animate-pulse">Syncing…</span>}
         </div>
 
         {friendRequests.length === 0 ? (
-          <p className="text-sm text-white/45">No pending friend requests</p>
+          <p className="text-xs text-white/40 italic py-2 text-center">No pending friend requests</p>
         ) : (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-3">
             {friendRequests.map(request => (
               <div
                 key={request.id}
-                className="rounded-xl p-3 flex items-center justify-between gap-3"
-                style={{ background: `hsl(${ph},30%,15%,0.15)`, border: `1px solid hsl(${ph},40%,50%,0.15)` }}
+                className="rounded-2xl p-4 flex items-center justify-between gap-3 bg-white/5 border border-white/10 shadow-sm"
               >
-                <div className="min-w-0">
-                  <p className="font-bold text-sm truncate">{request.requester?.name || 'Unknown'}</p>
-                  <p className="text-xs text-white/55 truncate">{request.requester?.email || ''}</p>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold bg-gradient-to-br from-emerald-500/20 to-teal-500/35 border border-emerald-400/20 text-emerald-300">
+                    {request.requester?.name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-black text-sm truncate text-white">{request.requester?.name || 'Unknown'}</p>
+                    <p className="text-xs text-white/50 truncate">{request.requester?.email || ''}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     onClick={() => acceptFriendRequest(request.id)}
-                    className="p-2 rounded-lg bg-teal-500/25 hover:bg-teal-500/40 text-teal-200 border border-teal-400/20"
+                    className="p-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-teal-950 transition-all flex items-center justify-center shadow-lg"
+                    title="Accept"
                   >
-                    <Check size={14} />
+                    <Check size={14} strokeWidth={3} />
                   </button>
                   <button
                     onClick={() => rejectFriendRequest(request.id)}
-                    className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-400/20"
+                    className="p-2 rounded-xl bg-white/10 hover:bg-red-500/20 text-white/70 hover:text-red-400 transition-all flex items-center justify-center"
+                    title="Decline"
                   >
                     <X size={14} />
                   </button>
@@ -422,37 +413,47 @@ export default function Profile() {
       </section>
 
       {/* Discover Users */}
-      <section className="glass-card p-4" style={{ borderColor: `hsl(${ph},40%,50%,0.12)` }}>
-        <h3 className="text-sm font-bold text-white/70 uppercase mb-3 flex items-center gap-2 tracking-wider">
-          <UserPlus size={14} /> Discover Users
-        </h3>
+      <section className="glass-card p-5 border shadow-xl" style={{ borderColor: `hsl(${ph},40%,50%,0.15)`, background: `linear-gradient(135deg, hsl(${ph},40%,12%,0.2), rgba(0,0,0,0))` }}>
+        <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-2">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2 tracking-wider uppercase">
+            <UserPlus size={16} style={{ color: accentCss }} /> Discover New Friends
+          </h3>
+        </div>
         {discoverUsers.length === 0 ? (
-          <p className="text-sm text-white/45">No users available right now</p>
+          <p className="text-xs text-white/40 italic py-2 text-center">No users available right now</p>
         ) : (
-          <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+          <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
             {discoverUsers.map(person => (
               <div
                 key={person.id}
-                className="rounded-xl p-3 flex items-center justify-between gap-3 bg-white/5 border border-white/10"
+                className="rounded-2xl p-3.5 flex items-center justify-between gap-3 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
               >
-                <div className="min-w-0">
-                  <p className="font-bold text-sm truncate">{person.name}</p>
-                  <p className="text-xs text-white/55 truncate">{person.email || 'No email'}</p>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div 
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border"
+                    style={{ background: `hsl(${ph},40%,25%,0.3)`, borderColor: `hsl(${ph},40%,55%,0.25)`, color: accentCss }}
+                  >
+                    {person.name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm truncate text-white">{person.name}</p>
+                    <p className="text-xs text-white/45 truncate">{person.email || 'No email'}</p>
+                  </div>
                 </div>
                 {person.friendshipStatus === 'none' ? (
                   <button
                     onClick={() => sendFriendRequest(person.id)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all"
+                    className="px-3 py-1.5 rounded-xl text-xs font-black border transition-all active:scale-95 shadow-sm"
                     style={{
-                      background: `hsl(${ph},50%,25%,0.3)`,
+                      background: `hsl(${ph},50%,25%,0.45)`,
                       color: accentCss,
-                      borderColor: `hsl(${ph},50%,55%,0.25)`,
+                      borderColor: `hsl(${ph},50%,55%,0.35)`,
                     }}
                   >
-                    Add
+                    Add Friend
                   </button>
                 ) : (
-                  <span className="text-[11px] text-white/50 uppercase">{person.friendshipStatus}</span>
+                  <span className="text-[10px] font-black tracking-wide bg-white/10 px-2 py-1 rounded-lg text-white/55 uppercase">{person.friendshipStatus}</span>
                 )}
               </div>
             ))}
@@ -461,82 +462,107 @@ export default function Profile() {
       </section>
 
       {/* Friends & Messages */}
-      <section className="glass-card p-4 flex flex-col gap-3">
-        <h3 className="text-sm font-bold text-white/70 uppercase mb-1 flex items-center gap-2 tracking-wider">
-          <MessageCircle size={14} /> Friends &amp; Messages
-        </h3>
+      <section className="glass-card p-5 border shadow-xl flex flex-col gap-3" style={{ borderColor: `hsl(${ph},35%,50%,0.15)` }}>
+        <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-1">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2 tracking-wider uppercase">
+            <MessageCircle size={16} style={{ color: accentCss }} /> Conversations
+          </h3>
+        </div>
 
         {friends.length === 0 ? (
-          <p className="text-sm text-white/45">No friends yet. Add users to start messaging.</p>
+          <p className="text-xs text-white/40 italic py-4 text-center">No active conversations. Add a friend to start chatting!</p>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
-            {friends.map(friend => (
-              <button
-                key={friend.id}
-                onClick={() => { setSelectedFriend(friend); loadMessages(friend.id); }}
-                className="text-left rounded-xl p-3 border transition-all"
-                style={
-                  selectedFriend?.id === friend.id
-                    ? { borderColor: accentCss, background: `hsl(${ph},50%,20%,0.2)` }
-                    : { borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)' }
-                }
-              >
-                <p className="font-bold text-sm truncate">{friend.name}</p>
-                <p className="text-[11px] text-white/50 truncate">{friend.email || 'No email'}</p>
-              </button>
-            ))}
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+            {friends.map(friend => {
+              const isSelected = selectedFriend?.id === friend.id;
+              return (
+                <button
+                  key={friend.id}
+                  onClick={() => { setSelectedFriend(friend); loadMessages(friend.id); }}
+                  className="flex items-center gap-2 rounded-2xl px-4 py-2 border shrink-0 transition-all font-bold text-xs"
+                  style={
+                    isSelected
+                      ? { borderColor: accentCss, background: `hsl(${ph},50%,20%,0.35)`, color: 'white' }
+                      : { borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.7)' }
+                  }
+                >
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/10 text-[10px]">
+                    {friend.name?.[0]?.toUpperCase()}
+                  </div>
+                  <span>{friend.name}</span>
+                </button>
+              );
+            })}
           </div>
         )}
 
         {selectedFriend && (
-          <div className="bg-white/5 rounded-xl p-3 mt-1 border border-white/10">
-            <p className="text-xs text-white/55 mb-2">
-              Chat with <span className="font-bold" style={{ color: accentCss }}>{selectedFriend.name}</span>
-            </p>
-            <div className="space-y-2 max-h-48 overflow-y-auto pr-1 mb-3">
+          <div className="bg-black/20 rounded-2xl p-4 mt-2 border border-white/10 shadow-inner">
+            <div className="flex items-center gap-2 border-b border-white/5 pb-2 mb-3">
+              <div 
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                style={{ background: `hsl(${ph},40%,25%,0.3)`, color: accentCss }}
+              >
+                {selectedFriend.name?.[0]?.toUpperCase()}
+              </div>
+              <div>
+                <p className="text-xs font-black text-white">{selectedFriend.name}</p>
+                <span className="text-[9px] text-green-400 uppercase tracking-widest font-black">Connected</span>
+              </div>
+            </div>
+            
+            <div className="space-y-3 max-h-56 overflow-y-auto pr-1 mb-4">
               {messages.length === 0 ? (
-                <p className="text-xs text-white/45">No messages yet</p>
+                <p className="text-xs text-white/30 italic text-center py-4">No messages yet. Send a friendly hello!</p>
               ) : (
                 messages.map(msg => {
                   const isMine = (msg.sender?.id || '') === display.id;
                   return (
                     <div
                       key={msg.id}
-                      className={`rounded-lg p-2 text-xs ${isMine ? 'ml-6 border' : 'bg-white/10 mr-6 border border-white/10'}`}
-                      style={isMine ? {
-                        background: `hsl(${ph},50%,20%,0.35)`,
-                        borderColor: `hsl(${ph},50%,55%,0.25)`,
-                        color: '#e0f7fa'
-                      } : {}}
+                      className={`flex flex-col max-w-[80%] ${isMine ? 'ml-auto items-end' : 'mr-auto items-start'}`}
                     >
-                      <p>{msg.text}</p>
-                      <p className="text-[10px] opacity-50 mt-1">{new Date(msg.createdAt).toLocaleString()}</p>
+                      <div
+                        className={`rounded-2xl px-3.5 py-2 text-xs shadow-sm border ${
+                          isMine 
+                            ? 'rounded-tr-none' 
+                            : 'rounded-tl-none bg-white/10 border-white/10 text-white'
+                        }`}
+                        style={isMine ? {
+                          background: `hsl(${ph},50%,20%,0.5)`,
+                          borderColor: `hsl(${ph},50%,55%,0.35)`,
+                          color: '#e0f7fa'
+                        } : {}}
+                      >
+                        <p className="leading-relaxed">{msg.text}</p>
+                      </div>
+                      <span className="text-[8px] text-white/30 mt-1 px-1">
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                   );
                 })
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5">
               <input
                 type="text"
                 value={messageText}
                 onChange={e => setMessageText(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendMessage(); } }}
                 placeholder="Type a message…"
-                className="flex-1 px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-sm focus:outline-none"
-                style={{ '--tw-ring-color': accentCss } as any}
+                className="flex-1 bg-transparent border-none text-xs text-white placeholder-white/40 focus:outline-none py-1"
               />
               <button
                 onClick={sendMessage}
-                className="px-3 py-2 rounded-lg border transition-all"
+                className="p-2 rounded-lg transition-all"
                 style={{
-                  background: `hsl(${ph},50%,25%,0.35)`,
-                  borderColor: `hsl(${ph},50%,55%,0.25)`,
+                  background: `hsl(${ph},50%,25%,0.45)`,
                   color: accentCss,
                 }}
               >
-                <Send size={14} />
+                <Send size={12} />
               </button>
             </div>
           </div>
