@@ -32,6 +32,7 @@ import FaceMonitor from './screens/FaceMonitor';
 import PoseMonitor from './screens/PoseMonitor';
 import HandMonitor from './screens/HandMonitor';
 import VitalLensMonitor from './screens/VitalLensMonitor';
+import PhysicalDeviceMonitor from './screens/PhysicalDeviceMonitor';
 import LiveExerciseEditor from './screens/LiveExerciseEditor';
 import HealthResultsHistory from './screens/HealthResultsHistory';
 import Profile from './screens/Profile';
@@ -222,6 +223,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <VitalLensMonitor />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/monitor/device"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <PhysicalDeviceMonitor />
             </Layout>
           </ProtectedRoute>
         }

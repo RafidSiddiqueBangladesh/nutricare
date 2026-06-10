@@ -1,4 +1,4 @@
-export type HealthResultType = 'face' | 'pose' | 'hand' | 'bmi' | 'vitals' | 'disease';
+export type HealthResultType = 'face' | 'pose' | 'hand' | 'bmi' | 'vitals' | 'disease' | 'device';
 
 export interface HealthResultEntry {
   id: string;

@@ -9,7 +9,7 @@ import { API_BASE_URL } from '@/src/services/api';
 
 interface HealthResult {
   id: string;
-  type: 'face' | 'pose' | 'hand' | 'bmi' | 'vitals' | 'disease';
+  type: 'face' | 'pose' | 'hand' | 'bmi' | 'vitals' | 'disease' | 'device';
   timestamp: string;
   data: {
     // vitals
@@ -34,6 +34,7 @@ interface HealthResult {
     kind?: string;
     score?: number;
     details?: Record<string, unknown>;
+    device?: any;
   };
 }
 
@@ -43,7 +44,7 @@ export default function HealthResultsHistory() {
   const [bmiLogs] = useLocalStorage<any[]>('health-metrics', []);
   const [backendResults, setBackendResults] = useState<HealthResult[]>([]);
   const [filteredResults, setFilteredResults] = useState<HealthResult[]>(results);
-  const [filterType, setFilterType] = useState<'all' | 'face' | 'pose' | 'hand' | 'vitals' | 'disease' | 'bmi'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'face' | 'pose' | 'hand' | 'vitals' | 'disease' | 'device' | 'bmi'>('all');
   const [searchDate, setSearchDate] = useState('');
 
   useEffect(() => {
@@ -71,7 +72,7 @@ export default function HealthResultsHistory() {
           (entries || []).forEach((entry: any) => {
             remote.push({
               id: entry.id,
-              type: String(type).startsWith('disease_') ? 'disease' : (type as HealthResult['type']),
+              type: String(type).startsWith('disease_') ? 'disease' : String(type).startsWith('device_') ? 'device' : (type as HealthResult['type']),
               timestamp: entry.createdAt,
               data: {
                 label: entry.label,
@@ -79,6 +80,7 @@ export default function HealthResultsHistory() {
                 score: entry.score,
                 details: entry.details || {},
                 vitals: entry.details?.vitals,
+                device: entry.details?.device,
                 heartRate: entry.details?.vitals?.heart_rate?.value ?? entry.score,
                 respiratoryRate: entry.details?.vitals?.respiratory_rate?.value,
                 hrv: entry.details?.vitals?.hrv?.value,
@@ -166,6 +168,7 @@ export default function HealthResultsHistory() {
       case 'bmi': return '⚖️';
       case 'vitals': return '❤️';
       case 'disease': return '🩺';
+      case 'device': return '⌚';
       default: return '📊';
     }
   };
@@ -178,6 +181,7 @@ export default function HealthResultsHistory() {
       case 'bmi': return 'BMI Record';
       case 'vitals': return 'Vitals (HR/RR)';
       case 'disease': return 'Disease Screening';
+      case 'device': return 'Connected Device';
       default: return 'Unknown';
     }
   };
@@ -190,6 +194,7 @@ export default function HealthResultsHistory() {
     bmi: filteredResults.filter(r => r.type === 'bmi').length,
     vitals: filteredResults.filter(r => r.type === 'vitals').length,
     disease: filteredResults.filter(r => r.type === 'disease').length,
+    device: filteredResults.filter(r => r.type === 'device').length,
   };
 
   const totalReps = filteredResults
@@ -286,6 +291,7 @@ export default function HealthResultsHistory() {
             { type: 'hand', label: 'Hand Gesture', count: stats.hand, color: 'from-purple-600 to-purple-400' },
             { type: 'vitals', label: 'Vitals (HR/RR)', count: stats.vitals, color: 'from-amber-600 to-amber-400' },
             { type: 'disease', label: 'Disease Screening', count: stats.disease, color: 'from-cyan-600 to-cyan-400' },
+            { type: 'device', label: 'Connected Device', count: stats.device, color: 'from-sky-600 to-sky-400' },
             { type: 'bmi', label: 'BMI Records', count: stats.bmi, color: 'from-rose-600 to-rose-400' },
           ].map(cat => (
             <div key={cat.type} className="flex items-center gap-3">
@@ -310,7 +316,7 @@ export default function HealthResultsHistory() {
           <div>
             <p className="text-xs text-white/60 mb-2">Type</p>
             <div className="flex gap-2">
-              {(['all', 'pose', 'face', 'hand', 'vitals', 'disease', 'bmi'] as const).map(type => (
+              {(['all', 'pose', 'face', 'hand', 'vitals', 'disease', 'device', 'bmi'] as const).map(type => (
                 <motion.button
                   key={type}
                   whileHover={{ scale: 1.05 }}
@@ -428,6 +434,17 @@ export default function HealthResultsHistory() {
                         <p className="text-xs text-white/50">{result.data.kind || 'disease'}</p>
                       </div>
                     )}
+                    {result.type === 'device' && (
+                      <div className="text-sm text-white/70 max-w-[220px]">
+                        <p className="font-bold text-sky-400">{result.data.label || 'Connected Device'}</p>
+                        <p className="text-xs text-white/50">{result.data.kind || 'device_watch'}</p>
+                        {result.data.details?.metricLabel && (
+                          <p className="text-xs text-white/60 mt-1">
+                            {result.data.details.metricLabel}: {result.data.details.value}{result.data.details.unit ? ` ${result.data.details.unit}` : ''}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     {result.type === 'bmi' && (
                       <>
                         <p className="text-sm font-bold text-rose-400">BMI {typeof result.data.bmi === 'number' ? result.data.bmi.toFixed(2) : '--'}</p>
@@ -484,6 +501,12 @@ export default function HealthResultsHistory() {
               <div className="flex justify-between">
                 <span className="text-white/60">Disease Screenings:</span>
                 <span className="font-bold text-cyan-400">{filteredResults.filter(r => r.type === 'disease').length}</span>
+              </div>
+            )}
+            {filteredResults.some(r => r.type === 'device') && (
+              <div className="flex justify-between">
+                <span className="text-white/60">Device Readings:</span>
+                <span className="font-bold text-sky-400">{filteredResults.filter(r => r.type === 'device').length}</span>
               </div>
             )}
           </div>
