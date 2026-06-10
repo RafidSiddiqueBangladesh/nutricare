@@ -16,6 +16,9 @@ export interface HandDetectionResult {
     label?: string;
   }>;
   gesture?: string;
+  leftDetected: boolean;
+  rightDetected: boolean;
+  missingParts: string[];
 }
 
 interface HandDetectorProps {
@@ -41,6 +44,11 @@ const HAND_CONNECTIONS = [
   [0, 17], [17, 18], [18, 19], [19, 20],
 ];
 
+// Finger tip indices for presence check
+const FINGER_TIPS: Record<string, number> = {
+  thumb: 4, index: 8, middle: 12, ring: 16, pinky: 20,
+};
+
 export const HandDetector: React.FC<HandDetectorProps> = ({
   onDetection,
   isRunning = true,
@@ -54,7 +62,7 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
   const handLandmarkerRef = useRef<any>(null);
   const animationRef = useRef<number | null>(null);
   const lastDetectionRef = useRef<number>(0);
-  const [missingFingers, setMissingFingers] = useState<string[]>([]);
+  const [detectionInfo, setDetectionInfo] = useState<HandDetectionResult | null>(null);
 
   // Initialize real MediaPipe Hand Landmarker
   useEffect(() => {
@@ -69,7 +77,6 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
 
         const landmarker = await HandLandmarker.createFromOptions(filesetResolver, {
           baseOptions: {
-            // Load model from public folder (served from same origin - no CORS)
             modelAssetPath: '/hand_landmarker.task',
           },
           runningMode: 'VIDEO',
@@ -102,26 +109,23 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
   const detectGesture = useCallback((keypoints: HandLandmark[]): string => {
     if (keypoints.length < 21) return 'neutral';
 
-    const wrist = keypoints[0];
-    const thumb = keypoints[4];
-    const index = keypoints[8];
+    const wrist  = keypoints[0];
+    const thumb  = keypoints[4];
+    const index  = keypoints[8];
     const middle = keypoints[12];
-    const ring = keypoints[16];
-    const pinky = keypoints[20];
+    const ring   = keypoints[16];
+    const pinky  = keypoints[20];
 
     if (!wrist || !thumb || !index || !middle) return 'neutral';
 
-    // Check thumb up gesture
     if (thumb.y < wrist.y - 0.1 && Math.abs(thumb.x - wrist.x) < 0.05) {
       return 'thumbs-up';
     }
 
-    // Check peace sign
     if (index.y < wrist.y && middle.y < wrist.y && ring.y > wrist.y && pinky.y > wrist.y) {
       return 'peace';
     }
 
-    // Check open palm
     if (
       thumb.x < wrist.x &&
       index.x > wrist.x &&
@@ -135,28 +139,16 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
     return 'neutral';
   }, []);
 
-  // Detect missing fingers (low confidence landmarks)
-  const detectMissingFingers = useCallback((keypoints: HandLandmark[]): string[] => {
+  // Compute missing fingers per hand (based on tip visibility via z)
+  const computeMissingFingers = useCallback((keypoints: HandLandmark[], handLabel: string): string[] => {
     const missing: string[] = [];
-    
-    // Threshold for confidence (0.5 or lower means missing/unreliable)
-    const confidenceThreshold = 0.5;
-    
-    const fingerMap: { [key: number]: string } = {
-      4: 'thumb',
-      8: 'index',
-      12: 'middle',
-      16: 'ring',
-      20: 'pinky'
-    };
-
-    Object.entries(fingerMap).forEach(([idx, name]) => {
-      const keypoint = keypoints[parseInt(idx)];
-      if (!keypoint || keypoint.z < confidenceThreshold) {
-        missing.push(name);
+    Object.entries(FINGER_TIPS).forEach(([finger, tipIdx]) => {
+      const kp = keypoints[tipIdx];
+      // z < -0.1 generally means the finger is behind the hand / not visible
+      if (!kp || kp.z < -0.1) {
+        missing.push(`${handLabel} ${finger}`);
       }
     });
-
     return missing;
   }, []);
 
@@ -166,14 +158,13 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
 
     const detectHands = async () => {
       const now = Date.now();
-      // Throttle to 10 FPS for better performance (every 100ms)
       if (now - lastDetectionRef.current < 100) {
         animationRef.current = requestAnimationFrame(detectHands);
         return;
       }
       lastDetectionRef.current = now;
 
-      const video = videoRef.current;
+      const video    = videoRef.current;
       const landmarker = handLandmarkerRef.current;
 
       if (video && video.readyState === 4) {
@@ -182,92 +173,120 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
 
           if (results.landmarks && results.landmarks.length > 0) {
             const hands = results.landmarks.map((landmarks: any, idx: number) => ({
-              keypoints: landmarks.map((lm: any) => ({
+              keypoints: landmarks.map((lm: any, lmIdx: number) => ({
                 x: lm.x,
                 y: lm.y,
                 z: lm.z || 0,
-                name: HAND_NAMES[landmarks.indexOf(lm)],
+                name: HAND_NAMES[lmIdx] || `pt${lmIdx}`,
               })),
-              label: results.handedness?.[idx]?.displayName?.toLowerCase() || (idx === 0 ? 'left' : 'right'),
+              label: results.handedness?.[idx]?.[0]?.categoryName?.toLowerCase() ||
+                     (idx === 0 ? 'left' : 'right'),
             }));
 
-            // Detect missing fingers
+            const leftDetected  = hands.some((h: any) => h.label === 'left');
+            const rightDetected = hands.some((h: any) => h.label === 'right');
             const allMissing: string[] = [];
-            hands.forEach(hand => {
-              const missing = detectMissingFingers(hand.keypoints);
-              allMissing.push(...missing);
+            if (!leftDetected)  allMissing.push('left hand');
+            if (!rightDetected) allMissing.push('right hand');
+            hands.forEach((hand: any) => {
+              const fingerMissing = computeMissingFingers(hand.keypoints, hand.label);
+              allMissing.push(...fingerMissing);
             });
-            setMissingFingers(allMissing);
 
-            // Draw real hand detections
+            // Draw on canvas
             if (showCanvas && canvasRef.current) {
               const canvas = canvasRef.current;
-              const ctx = canvas.getContext('2d');
+              const ctx    = canvas.getContext('2d');
               if (ctx) {
-                canvas.width = video.videoWidth;
+                canvas.width  = video.videoWidth;
                 canvas.height = video.videoHeight;
-
-                // Clear overlay
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                hands.forEach((hand, handIdx) => {
-                  const color = handIdx === 0 ? 'rgba(0, 255, 0, 0.9)' : 'rgba(255, 0, 255, 0.9)';
-
-                  // Draw keypoints
-                  ctx.fillStyle = color;
-                  hand.keypoints.forEach((kp: HandLandmark) => {
-                    if (kp.z > 0.3) { // Only draw if confidence is decent
-                      ctx.beginPath();
-                      ctx.arc(kp.x * canvas.width, kp.y * canvas.height, 6, 0, 2 * Math.PI);
-                      ctx.fill();
-                    }
-                  });
+                hands.forEach((hand: any, handIdx: number) => {
+                  const isLeft  = hand.label === 'left';
+                  const color   = isLeft ? 'rgba(0,230,255,0.95)' : 'rgba(255,80,255,0.95)';
+                  const colorFaded = isLeft ? 'rgba(0,230,255,0.5)' : 'rgba(255,80,255,0.5)';
 
                   // Draw connections
-                  ctx.strokeStyle = color;
-                  ctx.lineWidth = 2;
+                  ctx.strokeStyle = colorFaded;
+                  ctx.lineWidth = 2.5;
                   HAND_CONNECTIONS.forEach(([i, j]) => {
                     const kp1 = hand.keypoints[i];
                     const kp2 = hand.keypoints[j];
-                    if (kp1 && kp2 && kp1.z > 0.3 && kp2.z > 0.3) {
+                    if (kp1 && kp2) {
                       ctx.beginPath();
                       ctx.moveTo(kp1.x * canvas.width, kp1.y * canvas.height);
                       ctx.lineTo(kp2.x * canvas.width, kp2.y * canvas.height);
                       ctx.stroke();
                     }
                   });
+
+                  // Draw keypoints with names on tips
+                  hand.keypoints.forEach((kp: HandLandmark, kpIdx: number) => {
+                    const isTip = [4, 8, 12, 16, 20].includes(kpIdx);
+                    const r = isTip ? 7 : 4;
+                    ctx.fillStyle = isTip ? 'rgba(255,255,0,0.95)' : color;
+                    ctx.beginPath();
+                    ctx.arc(kp.x * canvas.width, kp.y * canvas.height, r, 0, 2 * Math.PI);
+                    ctx.fill();
+
+                    // Label tip fingers
+                    if (isTip && kp.name) {
+                      ctx.fillStyle = 'white';
+                      ctx.font = 'bold 10px Arial';
+                      ctx.fillText(kp.name.replace('_tip', ''), kp.x * canvas.width + 8, kp.y * canvas.height - 4);
+                    }
+                  });
+
+                  // Hand label banner
+                  const wrist = hand.keypoints[0];
+                  if (wrist) {
+                    ctx.fillStyle = color;
+                    ctx.font = 'bold 18px Arial';
+                    ctx.fillText(
+                      `${isLeft ? '🤚 LEFT' : '✋ RIGHT'}`,
+                      wrist.x * canvas.width - 30,
+                      wrist.y * canvas.height + 28
+                    );
+                  }
                 });
 
-                // Draw info
-                ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
-                ctx.font = 'bold 20px Arial';
-                ctx.fillText(`${hands.length} Hand${hands.length !== 1 ? 's' : ''} ✋`, 20, 40);
-
-                // Draw missing fingers warning
-                if (allMissing.length > 0) {
-                  ctx.fillStyle = 'rgba(255, 200, 0, 0.9)';
-                  ctx.font = '14px Arial';
-                  ctx.fillText(`⚠️ Missing/Low: ${allMissing.join(', ')}`, 20, 70);
-                }
+                // Summary overlay top-left
+                ctx.fillStyle = 'rgba(0,0,0,0.55)';
+                ctx.fillRect(8, 8, 260, 60);
+                ctx.fillStyle = 'rgba(255,255,255,0.95)';
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText(`Left: ${leftDetected ? '✅ Detected' : '❌ Not detected'}`, 16, 30);
+                ctx.fillText(`Right: ${rightDetected ? '✅ Detected' : '❌ Not detected'}`, 16, 52);
               }
             }
 
-            onDetection?.({
+            const info: HandDetectionResult = {
               detected: true,
               confidence: Math.max(...hands.map((h: any) =>
-                h.keypoints.reduce((sum: number, k: any) => sum + k.z, 0) / h.keypoints.length
+                h.keypoints.reduce((s: number, k: any) => s + Math.abs(k.z), 0) / h.keypoints.length
               )),
               hands,
               gesture: hands.length > 0 ? detectGesture(hands[0].keypoints) : 'none',
-            });
+              leftDetected,
+              rightDetected,
+              missingParts: allMissing,
+            };
+
+            setDetectionInfo(info);
+            onDetection?.(info);
           } else {
-            setMissingFingers([]);
-            onDetection?.({
+            const info: HandDetectionResult = {
               detected: false,
               confidence: 0,
               hands: [],
               gesture: 'none',
-            });
+              leftDetected: false,
+              rightDetected: false,
+              missingParts: ['left hand', 'right hand'],
+            };
+            setDetectionInfo(info);
+            onDetection?.(info);
           }
         } catch (err) {
           console.error('Hand detection error:', err);
@@ -281,7 +300,7 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [isRunning, isInitialized, showCanvas, onDetection, detectGesture, detectMissingFingers]);
+  }, [isRunning, isInitialized, showCanvas, onDetection, detectGesture, computeMissingFingers]);
 
   return (
     <div className="relative w-full h-full">
@@ -295,39 +314,35 @@ export const HandDetector: React.FC<HandDetectorProps> = ({
       />
 
       {showCanvas && (
-        <>
-          <canvas
-            ref={canvasRef}
-            className="absolute top-0 left-0 w-full h-full rounded-lg pointer-events-none"
-            style={{ transform: 'scaleX(-1)' }}
-          />
-        </>
+        <canvas
+          ref={canvasRef}
+          className="absolute top-0 left-0 w-full h-full rounded-lg pointer-events-none"
+          style={{ transform: 'scaleX(-1)' }}
+        />
       )}
 
-      {missingFingers.length > 0 && (
-        <div className="absolute top-4 left-4 bg-yellow-500/90 px-3 py-2 rounded-lg z-10">
-          <p className="text-yellow-950 font-bold text-xs">⚠️ Missing fingers: {missingFingers.join(', ')}</p>
+      {/* Model status badge */}
+      {!isInitialized && !error && (
+        <div className="absolute top-3 left-3 bg-cyan-500/90 px-3 py-1.5 rounded-md z-20 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-cyan-900 animate-pulse" />
+          <p className="text-cyan-950 font-semibold text-xs">Loading hand model…</p>
         </div>
       )}
 
-      <div className="absolute bottom-4 right-4 bg-black/60 px-3 py-2 rounded-lg z-10">
-        <p className="text-green-400 font-bold text-sm">✋ Hands Detected</p>
-      </div>
-
-      {!isInitialized && !error && (
-        <div className="absolute top-4 left-4 bg-teal-500/80 px-3 py-1.5 rounded-md z-20">
-          <p className="text-teal-950 font-semibold text-xs">Loading hand model...</p>
+      {isInitialized && !error && (
+        <div className="absolute top-3 right-3 bg-cyan-600/80 px-2 py-1 rounded-md z-20">
+          <p className="text-white font-bold text-[10px]">✅ MODEL READY</p>
         </div>
       )}
 
       {error && (
-        <div className="absolute top-4 left-4 bg-red-500/90 px-3 py-1.5 rounded-md z-20">
+        <div className="absolute top-3 left-3 bg-red-500/90 px-3 py-1.5 rounded-md z-20">
           <p className="text-red-950 text-xs font-semibold">{error}</p>
         </div>
       )}
 
       {cameraError && (
-        <div className="absolute top-4 left-4 bg-red-500/90 px-3 py-1.5 rounded-md z-20">
+        <div className="absolute top-3 left-3 bg-red-500/90 px-3 py-1.5 rounded-md z-20">
           <p className="text-red-950 text-xs font-semibold">{cameraError}</p>
         </div>
       )}

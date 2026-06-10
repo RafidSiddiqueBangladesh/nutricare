@@ -60,6 +60,10 @@ export default function PoseMonitor() {
     }
   };
 
+  const leftShoulder  = poseData?.leftShoulderDetected ?? false;
+  const rightShoulder = poseData?.rightShoulderDetected ?? false;
+  const movement      = poseData?.movementActive ?? false;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-4">
@@ -69,7 +73,7 @@ export default function PoseMonitor() {
         <div className="flex-1 flex justify-center">
           <div className="bg-teal-500/10 border border-teal-500/20 rounded-full px-4 py-1 flex items-center gap-2 text-teal-400">
             <User size={14} />
-            <span className="text-xs font-bold uppercase tracking-wider">Shoulder Movement</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Shoulder / Pose Monitor</span>
             <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
           </div>
         </div>
@@ -99,49 +103,75 @@ export default function PoseMonitor() {
           />
         </div>
 
-        {poseData && poseData.detected && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-teal-500/20 border border-teal-500/30 rounded-lg p-4"
-          >
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <p className="text-xs text-white/60 mb-1">Form Score</p>
-                <p className="font-bold text-teal-300 text-lg">{poseData.formScore}%</p>
-              </div>
-              <div>
-                <p className="text-xs text-white/60 mb-1">Reps Done</p>
-                <p className="font-bold text-teal-300 text-lg">{poseData.repCount || 0}</p>
-              </div>
-              <div>
-                <p className="text-xs text-white/60 mb-1">Confidence</p>
-                <p className="font-bold text-teal-300 text-lg">{Math.round(poseData.confidence * 100)}%</p>
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-teal-500/20">
-              <p className="text-xs text-teal-300 mb-3">
-                🔍 Detected {poseData.keypoints?.length || 0} body keypoints
+        {/* Always-visible shoulder status panel */}
+        <motion.div
+          key={`${leftShoulder}-${rightShoulder}-${movement}`}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3"
+        >
+          <div className="grid grid-cols-3 gap-3">
+            <div className={`rounded-lg p-3 border ${leftShoulder ? 'bg-teal-500/15 border-teal-400/30' : 'bg-red-500/10 border-red-400/20'}`}>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">Left Shoulder</p>
+              <p className={`font-bold text-sm ${leftShoulder ? 'text-teal-300' : 'text-red-400'}`}>
+                {leftShoulder ? '✅ Detected' : '❌ Not detected'}
               </p>
+            </div>
+            <div className={`rounded-lg p-3 border ${rightShoulder ? 'bg-teal-500/15 border-teal-400/30' : 'bg-red-500/10 border-red-400/20'}`}>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">Right Shoulder</p>
+              <p className={`font-bold text-sm ${rightShoulder ? 'text-teal-300' : 'text-red-400'}`}>
+                {rightShoulder ? '✅ Detected' : '❌ Not detected'}
+              </p>
+            </div>
+            <div className={`rounded-lg p-3 border ${movement ? 'bg-green-500/15 border-green-400/30' : 'bg-gray-500/10 border-gray-400/20'}`}>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">Movement</p>
+              <p className={`font-bold text-sm ${movement ? 'text-green-300' : 'text-gray-400'}`}>
+                {movement ? '🟢 Active' : '⚪ Not active'}
+              </p>
+            </div>
+          </div>
+
+          {poseData && poseData.detected && (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-xs text-white/60 mb-1">Form Score</p>
+                  <p className="font-bold text-teal-300 text-lg">{poseData.formScore}%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-white/60 mb-1">Reps Done</p>
+                  <p className="font-bold text-teal-300 text-lg">{poseData.repCount || 0}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-white/60 mb-1">Confidence</p>
+                  <p className="font-bold text-teal-300 text-lg">{Math.round(poseData.confidence * 100)}%</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-teal-300">
+                🔍 Detected {poseData.keypoints?.filter(k => k.score > 0.3).length || 0} / {poseData.keypoints?.length || 0} keypoints
+              </p>
+
               <button
                 onClick={savePoseAnalysis}
                 disabled={isSaving}
-                className="w-full bg-teal-500/30 hover:bg-teal-500/50 disabled:bg-gray-500/30 border border-teal-500/50 rounded-lg py-2 px-4 text-teal-300 hover:text-teal-200 transition-all font-semibold"
+                className="w-full bg-teal-500/20 hover:bg-teal-500/40 disabled:bg-gray-500/20 border border-teal-500/40 rounded-lg py-2 px-4 text-teal-300 hover:text-teal-100 transition-all font-semibold text-sm"
               >
-                {isSaving ? 'Saving...' : '💾 Save Analysis'}
+                {isSaving ? 'Saving…' : '💾 Save Analysis'}
               </button>
+
               {saveMessage && (
                 <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-xs text-center mt-2"
+                  className="text-xs text-center"
                 >
                   {saveMessage}
                 </motion.p>
               )}
-            </div>
-          </motion.div>
-        )}
+            </>
+          )}
+        </motion.div>
 
         {poseData && !poseData.detected && isRunning && (
           <motion.div
@@ -149,7 +179,7 @@ export default function PoseMonitor() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-3 flex items-center gap-2"
           >
-            <span className="text-xs text-yellow-300">⚠️ No pose detected - show full body in frame</span>
+            <span className="text-xs text-yellow-300">⚠️ No pose detected — show full upper body in frame</span>
           </motion.div>
         )}
       </section>
@@ -159,7 +189,7 @@ export default function PoseMonitor() {
         <div className="flex flex-col gap-2 text-sm">
           <div className="flex items-start gap-2">
             <span className="text-teal-400 mt-0.5">✓</span>
-            <p className="text-white/70">Stand with full body visible in camera frame</p>
+            <p className="text-white/70">Stand with upper body visible — yellow dots = shoulders</p>
           </div>
           <div className="flex items-start gap-2">
             <span className="text-teal-400 mt-0.5">✓</span>
@@ -167,7 +197,7 @@ export default function PoseMonitor() {
           </div>
           <div className="flex items-start gap-2">
             <span className="text-teal-400 mt-0.5">✓</span>
-            <p className="text-white/70">Keep movements smooth and deliberate</p>
+            <p className="text-white/70">Movement indicator turns green when shoulder motion is detected</p>
           </div>
           <div className="flex items-start gap-2">
             <span className="text-teal-400 mt-0.5">✓</span>

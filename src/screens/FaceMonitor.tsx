@@ -1,32 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Smile, Download } from 'lucide-react';
 import FaceDetector, { FaceDetectionResult } from '@/src/components/FaceDetector';
 import { motion } from 'motion/react';
 import { API_BASE_URL } from '@/src/services/api';
 import { appendHealthResult } from '@/src/lib/healthResults';
+import { useTheme } from '@/src/contexts/ThemeContext';
+
+type ThemeMood = 'Happy' | 'Sad' | 'Neutral' | 'Astonished';
+
+function toThemeMood(emotion?: string): ThemeMood {
+  switch (emotion) {
+    case 'happy':      return 'Happy';
+    case 'sad':        return 'Sad';
+    case 'astonished': return 'Astonished';
+    default:           return 'Neutral';
+  }
+}
+
+const EMOTION_STYLES: Record<string, { bg: string; border: string; text: string; emoji: string }> = {
+  happy:      { bg: 'bg-yellow-500/20', border: 'border-yellow-500/30', text: 'text-yellow-300', emoji: '😊' },
+  sad:        { bg: 'bg-blue-500/20',   border: 'border-blue-500/30',   text: 'text-blue-300',   emoji: '😢' },
+  astonished: { bg: 'bg-purple-500/20', border: 'border-purple-500/30', text: 'text-purple-300', emoji: '😲' },
+  neutral:    { bg: 'bg-teal-500/20',   border: 'border-teal-500/30',   text: 'text-teal-300',   emoji: '😐' },
+};
 
 export default function FaceMonitor() {
   const navigate = useNavigate();
+  const { setMood } = useTheme();
   const [faceData, setFaceData] = useState<FaceDetectionResult | null>(null);
   const [isRunning, setIsRunning] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  const getEmotionIcon = (emotion?: string): string => {
-    switch (emotion) {
-      case 'happy':
-        return '😊';
-      case 'sad':
-        return '😢';
-      case 'astonished':
-        return '😲';
-      case 'neutral':
-        return '😐';
-      default:
-        return '🤔';
+  const handleDetection = useCallback((result: FaceDetectionResult) => {
+    setFaceData(result);
+    // Sync detected mood to theme context so MoodSuggestions uses it
+    if (result.detected && result.emotion) {
+      setMood(toThemeMood(result.emotion));
     }
-  };
+  }, [setMood]);
 
   const saveFaceAnalysis = async () => {
     if (!faceData) return;
@@ -71,6 +84,9 @@ export default function FaceMonitor() {
     }
   };
 
+  const emotion     = faceData?.emotion || 'neutral';
+  const style       = EMOTION_STYLES[emotion] ?? EMOTION_STYLES.neutral;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-4">
@@ -80,7 +96,7 @@ export default function FaceMonitor() {
         <div className="flex-1 flex justify-center">
           <div className="bg-teal-500/10 border border-teal-500/20 rounded-full px-4 py-1 flex items-center gap-2 text-teal-400">
             <Smile size={14} />
-            <span className="text-xs font-bold uppercase tracking-wider">Face Detection & Mood</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Face Detection &amp; Mood</span>
             <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
           </div>
         </div>
@@ -104,53 +120,72 @@ export default function FaceMonitor() {
         <div className="aspect-video bg-black rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-inner">
           <FaceDetector
             isRunning={isRunning}
-            onDetection={setFaceData}
+            onDetection={handleDetection}
             showCanvas={true}
           />
         </div>
 
-        {faceData && faceData.detected && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-teal-500/20 border border-teal-500/30 rounded-lg p-4"
-          >
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              <div>
-                <p className="text-xs text-white/60 mb-1">Emotion</p>
-                <p className="font-bold text-teal-300 text-2xl">{getEmotionIcon(faceData.emotion)}</p>
-                <p className="text-sm text-teal-300 capitalize">{faceData.emotion || 'Unknown'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-white/60 mb-1">Confidence</p>
-                <p className="font-bold text-teal-300 text-lg">{Math.round((faceData.emotionScore || faceData.confidence) * 100)}%</p>
-              </div>
-              <div>
-                <p className="text-xs text-white/60 mb-1">Landmarks</p>
-                <p className="font-bold text-teal-300 text-lg">{faceData.landmarks?.length || 0}</p>
-              </div>
+        {/* Always-visible emotion status */}
+        <motion.div
+          key={emotion}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`${style.bg} border ${style.border} rounded-xl p-4 flex flex-col gap-3`}
+        >
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs text-white/60 mb-1">Emotion</p>
+              <p className={`font-black text-3xl`}>{style.emoji}</p>
+              <p className={`text-sm font-bold capitalize ${style.text}`}>{emotion}</p>
             </div>
+            <div>
+              <p className="text-xs text-white/60 mb-1">Confidence</p>
+              <p className={`font-bold text-lg ${style.text}`}>
+                {faceData ? `${Math.round((faceData.emotionScore || faceData.confidence) * 100)}%` : '--'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-white/60 mb-1">Landmarks</p>
+              <p className={`font-bold text-lg ${style.text}`}>
+                {faceData?.landmarks?.length ?? '--'}
+              </p>
+            </div>
+          </div>
 
-            <button
-              onClick={saveFaceAnalysis}
-              disabled={isSaving}
-              className="w-full bg-teal-500/30 hover:bg-teal-500/50 disabled:bg-gray-500/30 border border-teal-500/50 rounded-lg py-2 px-4 text-teal-300 hover:text-teal-200 transition-all flex items-center justify-center gap-2 font-semibold"
-            >
-              <Download size={16} />
-              {isSaving ? 'Saving...' : 'Save Analysis'}
-            </button>
+          {/* Mood interpretation note */}
+          <div className="bg-black/20 rounded-lg px-3 py-2 text-xs text-white/70">
+            {emotion === 'happy'
+              ? '😊 You look happy! Mouth open / smiling detected. Mood Suggestions will show positive content.'
+              : emotion === 'sad'
+              ? '😢 Feeling down? Tight expression detected. Mood Suggestions will offer comfort.'
+              : emotion === 'astonished'
+              ? '😲 Wide eyes and open mouth detected — looking surprised!'
+              : '😐 Neutral expression — relaxed and composed. Mood Suggestions will show balanced content.'}
+          </div>
 
-            {saveMessage && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-xs text-center mt-2"
+          {faceData?.detected && (
+            <>
+              <button
+                onClick={saveFaceAnalysis}
+                disabled={isSaving}
+                className="w-full bg-white/10 hover:bg-white/20 disabled:bg-gray-500/10 border border-white/20 rounded-lg py-2 px-4 text-white hover:text-white transition-all flex items-center justify-center gap-2 font-semibold text-sm"
               >
-                {saveMessage}
-              </motion.p>
-            )}
-          </motion.div>
-        )}
+                <Download size={15} />
+                {isSaving ? 'Saving…' : 'Save Analysis'}
+              </button>
+
+              {saveMessage && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-xs text-center"
+                >
+                  {saveMessage}
+                </motion.p>
+              )}
+            </>
+          )}
+        </motion.div>
 
         {faceData && !faceData.detected && isRunning && (
           <motion.div
@@ -158,7 +193,7 @@ export default function FaceMonitor() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-3 flex items-center gap-2"
           >
-            <span className="text-xs text-yellow-300">⚠️ No face detected - adjust camera position</span>
+            <span className="text-xs text-yellow-300">⚠️ No face detected — adjust camera position</span>
           </motion.div>
         )}
       </section>
@@ -172,11 +207,15 @@ export default function FaceMonitor() {
           </div>
           <div className="flex items-start gap-2">
             <span className="text-teal-400 mt-0.5">✓</span>
-            <p className="text-white/70">Position your face within the detection frame</p>
+            <p className="text-white/70">Open your mouth / smile → detected as <strong>Happy</strong></p>
           </div>
           <div className="flex items-start gap-2">
             <span className="text-teal-400 mt-0.5">✓</span>
-            <p className="text-white/70">Maintain steady head position for best results</p>
+            <p className="text-white/70">Keep mouth closed, relaxed → <strong>Neutral</strong></p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-teal-400 mt-0.5">✓</span>
+            <p className="text-white/70">Detected mood automatically updates Mood Suggestions page</p>
           </div>
         </div>
       </section>

@@ -57,6 +57,10 @@ export default function HandMonitor() {
     }
   };
 
+  const leftDetected  = handData?.leftDetected ?? false;
+  const rightDetected = handData?.rightDetected ?? false;
+  const missingParts  = handData?.missingParts ?? [];
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-4">
@@ -64,10 +68,10 @@ export default function HandMonitor() {
           <ChevronLeft size={24} />
         </button>
         <div className="flex-1 flex justify-center">
-          <div className="bg-teal-500/10 border border-teal-500/20 rounded-full px-4 py-1 flex items-center gap-2 text-teal-400">
+          <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-full px-4 py-1 flex items-center gap-2 text-cyan-400">
             <Hand size={14} />
-            <span className="text-xs font-bold uppercase tracking-wider">Hand Movement</span>
-            <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+            <span className="text-xs font-bold uppercase tracking-wider">Hand Detection</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
           </div>
         </div>
       </div>
@@ -79,7 +83,7 @@ export default function HandMonitor() {
             onClick={() => setIsRunning(!isRunning)}
             className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
               isRunning
-                ? 'bg-teal-500/20 text-teal-400'
+                ? 'bg-cyan-500/20 text-cyan-400'
                 : 'bg-gray-500/20 text-gray-400'
             }`}
           >
@@ -96,34 +100,63 @@ export default function HandMonitor() {
           />
         </div>
 
-        {handData && handData.detected && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-teal-500/20 border border-teal-500/30 rounded-lg p-4"
-          >
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-white/60 mb-1">Hands Detected</p>
-                <p className="font-bold text-teal-300 text-lg">{handData.hands?.length || 0}</p>
-              </div>
-              <div>
-                <p className="text-xs text-white/60 mb-1">Gesture</p>
-                <p className="font-bold text-teal-300 text-lg capitalize">
-                  {handData.gesture === 'none' ? 'N/A' : (handData.gesture || 'Unknown')}
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-teal-500/20 mb-3">
-              <p className="text-xs text-teal-300 mb-3">
-                ✋ {handData.hands?.map(h => h.label).join(', ') || 'Hands'} detected
+        {/* Always-visible detection status panel */}
+        <motion.div
+          key={`${leftDetected}-${rightDetected}`}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3"
+        >
+          {/* Per-hand status */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className={`rounded-lg p-3 border ${leftDetected ? 'bg-cyan-500/15 border-cyan-400/30' : 'bg-red-500/10 border-red-400/20'}`}>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">Left Hand</p>
+              <p className={`font-bold text-sm ${leftDetected ? 'text-cyan-300' : 'text-red-400'}`}>
+                {leftDetected ? '✅ Detected' : '❌ Not detected'}
               </p>
+            </div>
+            <div className={`rounded-lg p-3 border ${rightDetected ? 'bg-purple-500/15 border-purple-400/30' : 'bg-red-500/10 border-red-400/20'}`}>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">Right Hand</p>
+              <p className={`font-bold text-sm ${rightDetected ? 'text-purple-300' : 'text-red-400'}`}>
+                {rightDetected ? '✅ Detected' : '❌ Not detected'}
+              </p>
+            </div>
+          </div>
+
+          {/* Missing parts */}
+          <div className="rounded-lg bg-white/5 px-3 py-2 border border-white/10">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">Missing / Not Visible</p>
+            {missingParts.length === 0 ? (
+              <p className="text-xs text-green-400 font-semibold">✅ All parts detected</p>
+            ) : (
+              <p className="text-xs text-amber-400 leading-relaxed">
+                {missingParts.join(', ')}
+              </p>
+            )}
+          </div>
+
+          {/* Gesture */}
+          {handData?.detected && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-white/50 uppercase font-bold">Gesture:</span>
+              <span className="text-sm font-bold text-cyan-300 capitalize">
+                {handData.gesture === 'none' ? 'Neutral' : (handData.gesture || 'Unknown')}
+              </span>
+              <span className="text-[10px] text-white/50 uppercase font-bold ml-4">Confidence:</span>
+              <span className="text-sm font-bold text-cyan-300">
+                {Math.round(handData.confidence * 100)}%
+              </span>
+            </div>
+          )}
+
+          {handData?.detected && (
+            <div className="mt-1">
               <button
                 onClick={saveHandAnalysis}
                 disabled={isSaving}
-                className="w-full bg-teal-500/30 hover:bg-teal-500/50 disabled:bg-gray-500/30 border border-teal-500/50 rounded-lg py-2 px-4 text-teal-300 hover:text-teal-200 transition-all font-semibold"
+                className="w-full bg-cyan-500/20 hover:bg-cyan-500/40 disabled:bg-gray-500/20 border border-cyan-500/40 rounded-lg py-2 px-4 text-cyan-300 hover:text-cyan-100 transition-all font-semibold text-sm"
               >
-                {isSaving ? 'Saving...' : '💾 Save Analysis'}
+                {isSaving ? 'Saving…' : '💾 Save Analysis'}
               </button>
               {saveMessage && (
                 <motion.p
@@ -135,16 +168,16 @@ export default function HandMonitor() {
                 </motion.p>
               )}
             </div>
-          </motion.div>
-        )}
+          )}
+        </motion.div>
 
-        {handData && !handData.detected && isRunning && (
+        {!handData && isRunning && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-3 flex items-center gap-2"
           >
-            <span className="text-xs text-yellow-300">⚠️ No hands detected - raise your hands in frame</span>
+            <span className="text-xs text-yellow-300">⚠️ Waiting for hand detection data…</span>
           </motion.div>
         )}
       </section>
@@ -153,26 +186,26 @@ export default function HandMonitor() {
         <h3 className="text-lg font-bold mb-3">Hand Detection Guide</h3>
         <div className="flex flex-col gap-2 text-sm">
           <div className="flex items-start gap-2">
-            <span className="text-teal-400 mt-0.5">✓</span>
+            <span className="text-cyan-400 mt-0.5">✓</span>
             <p className="text-white/70">Raise both hands into the camera frame</p>
           </div>
           <div className="flex items-start gap-2">
-            <span className="text-teal-400 mt-0.5">✓</span>
-            <p className="text-white/70">Keep hands visible and well-lit</p>
+            <span className="text-cyan-400 mt-0.5">✓</span>
+            <p className="text-white/70">Keep hands visible and well-lit — cyan = left, magenta = right</p>
           </div>
           <div className="flex items-start gap-2">
-            <span className="text-teal-400 mt-0.5">✓</span>
-            <p className="text-white/70">Palm orientation helps gesture recognition</p>
+            <span className="text-cyan-400 mt-0.5">✓</span>
+            <p className="text-white/70">Yellow dots = finger tips; white skeleton = detected skeleton</p>
           </div>
           <div className="flex items-start gap-2">
-            <span className="text-teal-400 mt-0.5">✓</span>
-            <p className="text-white/70">Detect up to 2 hands simultaneously (left + right)</p>
+            <span className="text-cyan-400 mt-0.5">✓</span>
+            <p className="text-white/70">Realtime browser hand/finger detection — no backend needed</p>
           </div>
         </div>
       </section>
 
       <div className="text-xs text-white/50 text-center pb-4">
-        Supported gestures: Thumbs Up, Peace, Neutral
+        Supported gestures: Thumbs Up · Peace · Open Palm · Neutral
       </div>
     </div>
   );

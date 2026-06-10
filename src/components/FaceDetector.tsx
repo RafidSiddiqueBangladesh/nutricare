@@ -40,7 +40,6 @@ export const FaceDetector: React.FC<FaceDetectorProps> = ({
         
         const landmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
           baseOptions: { 
-            // Load model from public folder (served from same origin - no CORS)
             modelAssetPath: '/face_landmarker.task' 
           },
           runningMode: 'VIDEO',
@@ -69,35 +68,62 @@ export const FaceDetector: React.FC<FaceDetectorProps> = ({
     }
   }, [isInitialized, startCamera, cameraError]);
 
-  // Detect emotion from real face landmarks
+  /**
+   * Improved emotion detection using MediaPipe face landmark indices.
+   *
+   * Key insight: when the mouth is open (talking / smiling with open mouth),
+   * the vertical distance between lips increases significantly. A wide mouth
+   * combined with raised corners is a strong smile indicator.
+   *
+   * Landmark indices (MediaPipe canonical):
+   *   13  = upper-lip center
+   *   14  = lower-lip center
+   *   61  = left mouth corner
+   *   291 = right mouth corner
+   *   33  = left eye outer
+   *   263 = right eye outer
+   *   159 = left eye upper-lid center
+   *   145 = left eye lower-lid center
+   */
   const detectEmotion = (landmarks: any[]): { emotion: 'happy' | 'sad' | 'astonished' | 'neutral'; score: number } => {
-    if (!landmarks || landmarks.length < 10) return { emotion: 'neutral', score: 0.5 };
+    if (!landmarks || landmarks.length < 300) return { emotion: 'neutral', score: 0.5 };
 
-    // MediaPipe face landmark indices
-    const mouthLeft = landmarks[61];
-    const mouthRight = landmarks[291];
-    const mouthTop = landmarks[13];
+    const mouthTop    = landmarks[13];
     const mouthBottom = landmarks[14];
-    const leftEye = landmarks[33];
-    const rightEye = landmarks[263];
+    const mouthLeft   = landmarks[61];
+    const mouthRight  = landmarks[291];
+    const leftEyeTop  = landmarks[159];
+    const leftEyeBot  = landmarks[145];
+    const rightEyeTop = landmarks[386];
+    const rightEyeBot = landmarks[374];
 
-    if (!mouthLeft || !mouthRight || !leftEye || !rightEye) {
+    if (!mouthTop || !mouthBottom || !mouthLeft || !mouthRight) {
       return { emotion: 'neutral', score: 0.5 };
     }
 
-    // Calculate real metrics from landmarks
+    // Normalized mouth openness (vertical gap / face width proxy)
     const mouthHeight = Math.abs(mouthBottom.y - mouthTop.y);
-    const mouthWidth = Math.abs(mouthRight.x - mouthLeft.x);
-    const eyeHeight = Math.abs(rightEye.y - leftEye.y);
+    const mouthWidth  = Math.abs(mouthRight.x - mouthLeft.x);
+    // Mouth aspect ratio – high when open
+    const mar = mouthHeight / (mouthWidth + 0.001);
 
-    // Real emotion detection heuristics
-    if (mouthHeight > 0.05 && mouthWidth > 0.1) {
-      return { emotion: 'happy', score: 0.85 };
+    // Eye openness
+    const leftEyeHeight  = leftEyeTop  && leftEyeBot  ? Math.abs(leftEyeTop.y  - leftEyeBot.y)  : 0;
+    const rightEyeHeight = rightEyeTop && rightEyeBot ? Math.abs(rightEyeTop.y - rightEyeBot.y) : 0;
+    const eyeHeight = (leftEyeHeight + rightEyeHeight) / 2;
+
+    // Happy: mouth open (MAR > 0.25) OR wide mouth (>8% of normalised width)
+    if (mar > 0.25 || (mouthWidth > 0.09 && mouthHeight > 0.025)) {
+      return { emotion: 'happy', score: Math.min(0.95, 0.7 + mar * 0.5) };
     }
-    if (eyeHeight > 0.08 && mouthHeight > 0.03) {
+
+    // Astonished: eyes very wide AND mouth somewhat open
+    if (eyeHeight > 0.06 && mouthHeight > 0.02) {
       return { emotion: 'astonished', score: 0.8 };
     }
-    if (mouthHeight < 0.02 && eyeHeight < 0.04) {
+
+    // Sad: very tight mouth (narrow, nearly closed) + small eye opening
+    if (mouthHeight < 0.015 && eyeHeight < 0.03) {
       return { emotion: 'sad', score: 0.75 };
     }
 
@@ -129,16 +155,16 @@ export const FaceDetector: React.FC<FaceDetectorProps> = ({
                 canvas.height = video.videoHeight;
 
                 // Draw face landmarks
-                ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
+                ctx.fillStyle = 'rgba(0, 255, 180, 0.85)';
                 landmarks.forEach((landmark: any) => {
                   ctx.beginPath();
-                  ctx.arc(landmark.x * canvas.width, landmark.y * canvas.height, 3, 0, 2 * Math.PI);
+                  ctx.arc(landmark.x * canvas.width, landmark.y * canvas.height, 2.5, 0, 2 * Math.PI);
                   ctx.fill();
                 });
 
                 // Draw face contour
-                ctx.strokeStyle = 'rgba(0, 255, 0, 0.6)';
-                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'rgba(0, 255, 180, 0.55)';
+                ctx.lineWidth = 1.5;
                 const contourIndices = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10];
                 
                 ctx.beginPath();
@@ -151,14 +177,15 @@ export const FaceDetector: React.FC<FaceDetectorProps> = ({
                 });
                 ctx.stroke();
 
-                // Draw real results
-                ctx.fillStyle = 'rgba(0, 255, 0, 0.9)';
-                ctx.font = 'bold 24px Arial';
-                ctx.fillText(`${emotion.toUpperCase()} 🎯`, 20, 40);
+                // Draw emotion label prominently
+                const emotionEmoji = emotion === 'happy' ? '😊' : emotion === 'sad' ? '😢' : emotion === 'astonished' ? '😲' : '😐';
+                ctx.fillStyle = 'rgba(0, 255, 180, 0.95)';
+                ctx.font = 'bold 26px Arial';
+                ctx.fillText(`${emotionEmoji} ${emotion.toUpperCase()}`, 16, 44);
                 ctx.font = '14px Arial';
-                ctx.fillStyle = 'rgba(0, 255, 0, 0.8)';
-                ctx.fillText(`Real Analysis: ${Math.round(score * 100)}%`, 20, 70);
-                ctx.fillText(`Landmarks Detected: ${landmarks.length}`, 20, 95);
+                ctx.fillStyle = 'rgba(180, 255, 220, 0.9)';
+                ctx.fillText(`Confidence: ${Math.round(score * 100)}%`, 16, 68);
+                ctx.fillText(`Landmarks: ${landmarks.length}`, 16, 90);
               }
             }
 
@@ -205,14 +232,22 @@ export const FaceDetector: React.FC<FaceDetectorProps> = ({
       {showCanvas && (
         <canvas
           ref={canvasRef}
-          className="absolute top-0 left-0 w-full h-full rounded-lg"
+          className="absolute top-0 left-0 w-full h-full rounded-lg pointer-events-none"
           style={{ transform: 'scaleX(-1)' }}
         />
       )}
 
+      {/* Model loading indicator */}
       {!isInitialized && !error && (
-        <div className="absolute top-3 left-3 bg-teal-500/80 px-3 py-1.5 rounded-md z-20">
-          <p className="text-teal-950 font-semibold text-xs">Loading face model...</p>
+        <div className="absolute top-3 left-3 bg-teal-500/90 px-3 py-1.5 rounded-md z-20 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-teal-900 animate-pulse" />
+          <p className="text-teal-950 font-semibold text-xs">Loading face model…</p>
+        </div>
+      )}
+
+      {isInitialized && !error && (
+        <div className="absolute top-3 right-3 bg-teal-600/80 px-2 py-1 rounded-md z-20">
+          <p className="text-white font-bold text-[10px]">✅ MODEL READY</p>
         </div>
       )}
 

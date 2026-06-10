@@ -1,15 +1,74 @@
-import React, { useState } from 'react';
-import { ChefHat, Package, Tag, Calendar, List, Utensils, Trash2, Mic, Camera, Lightbulb, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import {
+  ChefHat, Package, Tag, Calendar, List, Utensils, Trash2, Mic, Camera,
+  Lightbulb, Youtube, Loader2, Search, ExternalLink,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 import { InventoryItem } from '@/src/types';
 import { cn, formatCurrency, formatDate } from '@/src/lib/utils';
 
+// Recipe YouTube search via public YouTube Data API
+// Replace with your own key in .env as VITE_YOUTUBE_API_KEY
+const YT_API_KEY = (import.meta as any).env?.VITE_YOUTUBE_API_KEY || '';
+
+interface YouTubeVideo {
+  id: string;
+  title: string;
+  channel: string;
+  thumbnail: string;
+}
+
+async function searchYouTubeRecipes(ingredients: string[]): Promise<YouTubeVideo[]> {
+  if (!ingredients.length) return [];
+  const query = encodeURIComponent(`${ingredients.slice(0, 4).join(' ')} recipe cooking`);
+
+  // Use YouTube Data API if key available, otherwise fall back to no-key embed search
+  if (YT_API_KEY) {
+    try {
+      const res = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&maxResults=4&key=${YT_API_KEY}`
+      );
+      const data = await res.json();
+      return (data.items || []).map((item: any) => ({
+        id: item.id.videoId,
+        title: item.snippet.title,
+        channel: item.snippet.channelTitle,
+        thumbnail: item.snippet.thumbnails?.medium?.url || `https://img.youtube.com/vi/${item.id.videoId}/mqdefault.jpg`,
+      }));
+    } catch (err) {
+      console.error('YouTube API error:', err);
+    }
+  }
+
+  // Fallback: curated recipe video IDs when no API key
+  const fallbackRecipes: Record<string, YouTubeVideo[]> = {
+    default: [
+      { id: 'HMjBMjGMtkg', title: '5 Easy Dinner Recipes for Busy Weeknights', channel: 'Joshua Weissman', thumbnail: 'https://img.youtube.com/vi/HMjBMjGMtkg/mqdefault.jpg' },
+      { id: 'FS_MrYFrYgU', title: 'Simple Healthy Meals', channel: 'Pick Up Limes', thumbnail: 'https://img.youtube.com/vi/FS_MrYFrYgU/mqdefault.jpg' },
+      { id: 'bHhMVJO8EiI', title: 'Pasta Recipe - Easy Quick Dinner', channel: 'Tasty', thumbnail: 'https://img.youtube.com/vi/bHhMVJO8EiI/mqdefault.jpg' },
+      { id: 'Wmn4_Ga5wGk', title: 'One Pan Chicken & Rice', channel: 'Pro Home Cooks', thumbnail: 'https://img.youtube.com/vi/Wmn4_Ga5wGk/mqdefault.jpg' },
+    ],
+  };
+
+  const lowerIngredients = ingredients.map(i => i.toLowerCase());
+  if (lowerIngredients.some(i => i.includes('chicken')))
+    return [fallbackRecipes.default[3], ...fallbackRecipes.default.slice(0, 3)];
+  if (lowerIngredients.some(i => i.includes('pasta') || i.includes('noodle')))
+    return [fallbackRecipes.default[2], ...fallbackRecipes.default.slice(0, 2)];
+
+  return fallbackRecipes.default;
+}
+
 export default function Cooking() {
   const [items, setItems] = useLocalStorage<InventoryItem[]>('inventory-items', []);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [unit, setUnit] = useState('Default');
+  const [videos, setVideos] = useState<YouTubeVideo[]>([]);
+  const [videosLoading, setVideosLoading] = useState(false);
+  const [videosError, setVideosError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const addItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +79,7 @@ export default function Cooking() {
       name,
       price: parseFloat(price) || 0,
       expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      amountOption: 'Default',
+      amountOption: unit,
       addedAt: Date.now(),
     };
 
@@ -28,6 +87,24 @@ export default function Cooking() {
     setName('');
     setPrice('');
   };
+
+  const fetchRecipes = useCallback(async () => {
+    if (!items.length) return;
+    setVideosLoading(true);
+    setVideosError(null);
+    setHasSearched(true);
+    try {
+      const results = await searchYouTubeRecipes(items.map(i => i.name));
+      if (results.length === 0) {
+        setVideosError('No videos found. Try adding more ingredients.');
+      }
+      setVideos(results);
+    } catch (err) {
+      setVideosError('Failed to fetch recipe ideas. Please try again.');
+    } finally {
+      setVideosLoading(false);
+    }
+  }, [items]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -51,7 +128,7 @@ export default function Cooking() {
             <div className="relative flex-1">
               <input 
                 type="text" 
-                placeholder="Enter ingredient..."
+                placeholder="Enter ingredient…"
                 className="glass-input w-full"
                 value={name}
                 onChange={e => setName(e.target.value)}
@@ -72,23 +149,30 @@ export default function Cooking() {
             onChange={e => setPrice(e.target.value)}
           />
           
-          <select className="glass-input">
+          <select className="glass-input" value={unit} onChange={e => setUnit(e.target.value)}>
             <option>Default</option>
             <option>Kg</option>
             <option>Piece</option>
+            <option>Litre</option>
+            <option>Pack</option>
           </select>
 
           <div className="glass-input flex items-center justify-between text-white/40 text-sm">
-            <span>Tap to set (auto: default by type)</span>
+            <span>Auto-expiry: Meat/Fish 3mo, Veg 1mo</span>
             <Calendar size={16} />
           </div>
 
-          <p className="text-[10px] text-teal-400/60 italic text-center leading-tight">
-            Tip: Set expiry date or use auto-defaults (Meat/Fish: 3mo, Veg: 1mo).
-          </p>
-
-          <button type="button" className="w-full py-3 bg-rose-400/20 text-rose-400 rounded-full font-bold text-sm border border-rose-400/30">
-            Get Cooking Ideas
+          <button
+            type="button"
+            onClick={fetchRecipes}
+            disabled={!items.length || videosLoading}
+            className="w-full py-3 bg-rose-400/20 hover:bg-rose-400/30 disabled:opacity-40 text-rose-400 rounded-full font-bold text-sm border border-rose-400/30 flex items-center justify-center gap-2 transition-all"
+          >
+            {videosLoading ? (
+              <><Loader2 size={16} className="animate-spin" /> Finding Recipe Ideas…</>
+            ) : (
+              <><Youtube size={16} /> Get Cooking Ideas from YouTube</>
+            )}
           </button>
         </form>
       </section>
@@ -99,10 +183,11 @@ export default function Cooking() {
         </div>
         <div>
           <p className="text-xs font-bold text-teal-400 uppercase tracking-wider">Inventory Summary</p>
-          <h3 className="text-2xl font-black">{items.length} item(s) in kitchen</h3>
+          <h3 className="text-2xl font-black">{items.length} item{items.length !== 1 ? 's' : ''} in kitchen</h3>
         </div>
       </section>
 
+      {/* Smart tip */}
       <section>
         <h2 className="text-xl font-bold mb-4 px-2">Smart Suggestions</h2>
         <div className="glass-card flex items-start gap-4">
@@ -112,36 +197,106 @@ export default function Cooking() {
           <div className="flex-1">
             <p className="text-sm font-bold mb-1">Tip:</p>
             <p className="text-sm text-white/70">
-              {items.length > 0 ? "Cook rice with vegetables. Utilize leftovers for farming compost." : "Add inventory items to get smart cooking suggestions."}
+              {items.length > 0
+                ? `With ${items.map(i => i.name).slice(0, 3).join(', ')}${items.length > 3 ? ` and ${items.length - 3} more` : ''}, click "Get Cooking Ideas" to find YouTube recipe videos!`
+                : 'Add inventory items above to get smart cooking suggestions and YouTube recipe videos.'}
             </p>
           </div>
         </div>
       </section>
 
+      {/* YouTube Recipe Videos */}
+      <AnimatePresence>
+        {(hasSearched || videos.length > 0) && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="pb-4"
+          >
+            <h2 className="text-xl font-bold mb-4 px-2 flex items-center gap-2">
+              <Youtube size={20} className="text-red-400" />
+              Recipe Ideas
+            </h2>
+
+            {videosError && (
+              <div className="glass-card text-center py-4 text-amber-400 text-sm">
+                ⚠️ {videosError}
+                {!YT_API_KEY && (
+                  <p className="text-white/40 text-xs mt-2">Add VITE_YOUTUBE_API_KEY to .env for live search</p>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-5">
+              {videos.map((video) => (
+                <motion.div
+                  key={video.id}
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex flex-col gap-2"
+                >
+                  <div className="flex items-start justify-between px-2">
+                    <div>
+                      <h4 className="font-bold text-sm leading-tight line-clamp-2">{video.title}</h4>
+                      <p className="text-[10px] text-white/40 mt-0.5">{video.channel}</p>
+                    </div>
+                    <a
+                      href={`https://www.youtube.com/watch?v=${video.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 p-1.5 text-white/40 hover:text-white transition-all"
+                    >
+                      <ExternalLink size={14} />
+                    </a>
+                  </div>
+                  <div className="glass-card !p-0 aspect-video overflow-hidden rounded-2xl">
+                    <iframe
+                      src={`https://www.youtube.com/embed/${video.id}?rel=0&modestbranding=1`}
+                      title={video.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full"
+                      style={{ border: 'none' }}
+                    />
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
+      {/* Saved Inventory */}
       <section className="pb-12">
         <h2 className="text-xl font-bold mb-4 px-2">Saved Inventory</h2>
-        <div className="flex flex-col gap-2">
-          {items.map(item => (
-            <div key={item.id} className="glass-card !p-4 flex justify-between items-start">
-              <div className="flex gap-4">
-                <div className="bg-white/5 p-2 rounded-xl text-white/40">
-                  <Utensils size={20} />
+        {items.length === 0 ? (
+          <div className="glass-card text-center py-8 text-sm text-white/40 italic">
+            No items yet. Add your first ingredient above!
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {items.map(item => (
+              <div key={item.id} className="glass-card !p-4 flex justify-between items-start">
+                <div className="flex gap-4">
+                  <div className="bg-white/5 p-2 rounded-xl text-white/40">
+                    <Utensils size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-base leading-tight">{item.name}</h4>
+                    <p className="text-xs text-white/60">1 {item.amountOption || 'unit'} · {item.price > 0 ? formatCurrency(item.price) : 'No price'}</p>
+                    <p className="text-[10px] text-teal-400 mt-1">Expires: {formatDate(new Date(item.expiryDate))}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-bold text-base leading-tight">{item.name}</h4>
-                  <p className="text-xs text-white/60">1 unit • Price: {item.price}</p>
-                  <p className="text-[10px] text-teal-400 mt-1">Expires: {formatDate(new Date(item.expiryDate))} (default)</p>
-                </div>
+                <button 
+                  onClick={() => setItems(items.filter(i => i.id !== item.id))}
+                  className="p-2 text-rose-400 hover:bg-rose-500/20 rounded-xl transition-all"
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
-              <button 
-                onClick={() => setItems(items.filter(i => i.id !== item.id))}
-                className="p-2 text-rose-400 hover:bg-rose-500/20 rounded-xl transition-all"
-              >
-                <Trash2 size={18} />
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

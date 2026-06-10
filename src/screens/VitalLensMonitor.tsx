@@ -1,24 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, Heart, Activity, Wind, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
 import { API_BASE_URL } from '../services/api';
 import { appendHealthResult } from '../lib/healthResults';
+import { motion, AnimatePresence } from 'motion/react';
 
 const CDN_SRC = 'https://cdn.jsdelivr.net/npm/vitallens/dist/vitallens.browser.js';
 
 function resolveAbsoluteUrl(pathname: string) {
-  const base = API_BASE_URL?.trim() || '/api';
-  const path = pathname.startsWith('/') ? pathname : `/${pathname}`;
-
-  try {
-    return new URL(path, base.endsWith('/') ? base : `${base}/`).toString();
-  } catch {
-    const origin = window.location.origin;
-    const absoluteBase = base.startsWith('http://') || base.startsWith('https://')
-      ? base
-      : `${origin}${base.startsWith('/') ? base : `/${base}`}`;
-
-    return new URL(path, absoluteBase.endsWith('/') ? absoluteBase : `${absoluteBase}/`).toString();
+  // Always use the backend proxy URL directly (not relative)
+  const base = (API_BASE_URL?.trim() || '').replace(/\/$/, '');
+  if (base.startsWith('http')) {
+    return `${base}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
   }
+  const origin = window.location.origin;
+  return `${origin}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
 }
 
 type VitalLensClient = {
@@ -27,146 +23,269 @@ type VitalLensClient = {
   addEventListener: (eventName: string, callback: (result: any) => void) => void;
 };
 
+interface VitalsData {
+  heartRate: number | null;
+  respiratoryRate: number | null;
+  hrv: number | null;
+  timestamp: string;
+}
+
 export default function VitalLensMonitor() {
-  const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState('Loading VitalLens...');
-  const [lastResult, setLastResult] = useState<any>(null);
+  const [scriptLoading, setScriptLoading] = useState(true);
+  const [scriptReady, setScriptReady] = useState(false);
+  const [scriptError, setScriptError] = useState<string | null>(null);
+  const [streaming, setStreaming] = useState(false);
+  const [streamError, setStreamError] = useState<string | null>(null);
+  const [vitals, setVitals] = useState<VitalsData | null>(null);
+  const [rawResult, setRawResult] = useState<any>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const clientRef = useRef<VitalLensClient | null>(null);
   const navigate = useNavigate();
 
   const proxyUrl = useMemo(() => resolveAbsoluteUrl('/api/vitallens'), []);
-  const saveUrl = useMemo(() => resolveAbsoluteUrl('/api/health/vitals-analysis'), []);
+  const saveUrl  = useMemo(() => resolveAbsoluteUrl('/api/health/vitals-analysis'), []);
 
+  // Load CDN script
   useEffect(() => {
     let mounted = true;
 
-    const loadScript = async () => {
-      if ((window as any).VitalLens) {
-        if (mounted) {
-          setLoading(false);
-          setStatus('Ready');
-        }
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = CDN_SRC;
-      script.type = 'module';
-      script.async = true;
-      script.onload = () => {
-        if (!mounted) return;
-        setLoading(false);
-        setStatus('Ready');
-      };
-      script.onerror = () => {
-        if (!mounted) return;
-        setLoading(false);
-        setStatus('Failed to load VitalLens script');
-      };
-      document.head.appendChild(script);
-    };
-
-    loadScript();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (loading) return;
-    const VitalLensCtor = (window as any).VitalLens;
-    if (!VitalLensCtor) {
-      setStatus('VitalLens library unavailable');
+    if ((window as any).VitalLens) {
+      setScriptLoading(false);
+      setScriptReady(true);
       return;
     }
 
-    const client = new VitalLensCtor({
-      method: 'vitallens',
-      proxyUrl,
-    }) as VitalLensClient;
+    const script = document.createElement('script');
+    script.src   = CDN_SRC;
+    script.type  = 'module';
+    script.async = true;
+    script.onload = () => {
+      if (!mounted) return;
+      setScriptLoading(false);
+      // Give ESM a tick to register the global
+      setTimeout(() => {
+        if ((window as any).VitalLens) {
+          setScriptReady(true);
+        } else {
+          setScriptError('VitalLens library loaded but global not found. This browser may not support the required features.');
+        }
+      }, 300);
+    };
+    script.onerror = () => {
+      if (!mounted) return;
+      setScriptLoading(false);
+      setScriptError('Failed to load VitalLens CDN script. Check your internet connection or try a supported browser.');
+    };
+    document.head.appendChild(script);
 
-    clientRef.current = client;
+    return () => { mounted = false; };
+  }, []);
+
+  // Start VitalLens once script is ready
+  useEffect(() => {
+    if (!scriptReady) return;
+
+    const VitalLensCtor = (window as any).VitalLens;
+    if (!VitalLensCtor) {
+      setScriptError('VitalLens constructor not available after loading. This feature requires a Chromium-based browser.');
+      return;
+    }
+
+    let client: VitalLensClient;
+    try {
+      client = new VitalLensCtor({ method: 'vitallens', proxyUrl }) as VitalLensClient;
+      clientRef.current = client;
+    } catch (err: any) {
+      setScriptError(`VitalLens initialization error: ${err?.message || String(err)}`);
+      return;
+    }
 
     const onVitals = async (result: any) => {
-      setLastResult(result);
-      setStatus('Processing vitals...');
+      setRawResult(result);
+      const v = result?.vitals ?? result;
 
-      const vitals = result?.vitals ?? result;
-      const entry = {
-        id: undefined,
+      const entry: VitalsData = {
+        heartRate:       v?.heart_rate?.value ?? v?.heart_rate ?? null,
+        respiratoryRate: v?.respiratory_rate?.value ?? v?.respiratory_rate ?? null,
+        hrv:             v?.hrv?.value ?? v?.hrv ?? null,
+        timestamp:       new Date().toISOString(),
+      };
+
+      setVitals(entry);
+
+      appendHealthResult({
+        id: crypto.randomUUID(),
         type: 'vitals',
-        timestamp: new Date().toISOString(),
+        timestamp: entry.timestamp,
         data: {
-          vitals,
-          heartRate: vitals?.heart_rate?.value ?? vitals?.heart_rate ?? null,
-          respiratoryRate: vitals?.respiratory_rate?.value ?? vitals?.respiratory_rate ?? null,
-          hrv: vitals?.hrv?.value ?? vitals?.hrv ?? null,
+          vitals: v,
+          heartRate: entry.heartRate ?? undefined,
+          respiratoryRate: entry.respiratoryRate ?? undefined,
+          hrv: entry.hrv ?? undefined,
         },
-      } as any;
-
-      appendHealthResult(entry);
+      });
 
       try {
         await fetch(saveUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vitals, raw: result, timestamp: entry.timestamp }),
+          body: JSON.stringify({ vitals: v, raw: result, timestamp: entry.timestamp }),
         });
-      } catch (error) {
-        console.warn('vitals save failed', error);
+      } catch (err) {
+        console.warn('vitals save failed', err);
       }
     };
 
     client.addEventListener('vitals', onVitals);
 
     const start = async () => {
-      setStatus('Starting camera...');
-      await client.startVideoStream();
-      setStatus('Streaming vitals');
+      setStreamError(null);
+      setStreaming(true);
+      try {
+        await client.startVideoStream();
+      } catch (err: any) {
+        setStreaming(false);
+        setStreamError(`Stream error: ${err?.message || 'Unknown error'}`);
+      }
     };
 
-    start().catch((error) => {
-      console.error('VitalLens start failed:', error);
-      setStatus(error?.message || 'Failed to start VitalLens');
-    });
+    start();
 
     return () => {
       clientRef.current = null;
-      Promise.resolve(client.close?.()).catch(() => undefined);
+      Promise.resolve(client?.close?.()).catch(() => undefined);
     };
-  }, [loading, proxyUrl, saveUrl]);
+  }, [scriptReady, proxyUrl, saveUrl]);
+
+  const vitalCards = vitals ? [
+    { icon: <Heart size={18} />, label: 'Heart Rate', value: vitals.heartRate ? `${vitals.heartRate} bpm` : '--', color: 'text-rose-400', bg: 'bg-rose-500/15', border: 'border-rose-400/25' },
+    { icon: <Wind size={18} />, label: 'Resp. Rate', value: vitals.respiratoryRate ? `${vitals.respiratoryRate} /min` : '--', color: 'text-blue-400', bg: 'bg-blue-500/15', border: 'border-blue-400/25' },
+    { icon: <Activity size={18} />, label: 'HRV', value: vitals.hrv ? `${vitals.hrv} ms` : '--', color: 'text-teal-400', bg: 'bg-teal-500/15', border: 'border-teal-400/25' },
+  ] : [];
 
   return (
-    <div style={{ padding: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button onClick={() => navigate(-1)}>Back</button>
-        <h2>VitalLens — Vital Signs Monitor</h2>
-      </div>
-
-      <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
-        <div className="glass-card">
-          <p className="text-sm text-white/70">Proxy URL: {proxyUrl}</p>
-          <p className="text-sm text-white/70">Status: {status}</p>
-          {loading && <p className="text-sm text-white/50">Loading VitalLens library...</p>}
-        </div>
-
-        <div className="glass-card">
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            style={{ width: '100%', borderRadius: 16, background: '#000', minHeight: 280 }}
-          />
-        </div>
-
-        <div className="glass-card">
-          <h3 className="font-bold mb-2">Last result</h3>
-          <pre style={{ maxHeight: 360, overflow: 'auto' }}>{JSON.stringify(lastResult, null, 2)}</pre>
+    <div className="flex flex-col gap-6 pb-12">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/10 rounded-full transition-all">
+          <ChevronLeft size={24} />
+        </button>
+        <div className="flex-1 flex justify-center">
+          <div className="bg-rose-500/10 border border-rose-500/20 rounded-full px-4 py-1 flex items-center gap-2 text-rose-400">
+            <Heart size={14} />
+            <span className="text-xs font-bold uppercase tracking-wider">VitalLens — Vital Signs</span>
+            {streaming && <div className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />}
+          </div>
         </div>
       </div>
+
+      {/* Status card */}
+      <section className="glass-card !p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-white/60 font-bold uppercase">Proxy URL</span>
+            <code className="text-xs text-teal-300 bg-teal-500/10 px-2 py-0.5 rounded overflow-hidden text-ellipsis max-w-[260px]">
+              {proxyUrl}
+            </code>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {scriptLoading && (
+              <>
+                <div className="w-3 h-3 rounded-full bg-yellow-400 animate-pulse" />
+                <span className="text-sm text-yellow-300">Loading VitalLens library…</span>
+              </>
+            )}
+            {!scriptLoading && scriptReady && !streaming && (
+              <>
+                <div className="w-3 h-3 rounded-full bg-yellow-400 animate-pulse" />
+                <span className="text-sm text-yellow-300">Starting camera stream…</span>
+              </>
+            )}
+            {!scriptLoading && scriptReady && streaming && (
+              <>
+                <CheckCircle size={16} className="text-green-400" />
+                <span className="text-sm text-green-300 font-semibold">✅ Streaming vitals — look into camera</span>
+              </>
+            )}
+            {(scriptError || streamError) && (
+              <>
+                <AlertTriangle size={16} className="text-amber-400" />
+                <span className="text-sm text-amber-300">{scriptError || streamError}</span>
+              </>
+            )}
+          </div>
+
+          {/* Guidance when library unavailable */}
+          {scriptError && (
+            <div className="bg-amber-500/10 border border-amber-400/20 rounded-lg p-3 text-xs text-amber-200 leading-relaxed">
+              <p className="font-bold mb-1">ℹ️ VitalLens Troubleshooting</p>
+              <ul className="space-y-1 text-white/70">
+                <li>• VitalLens requires a Chromium-based browser (Chrome / Edge)</li>
+                <li>• The backend proxy must be reachable at: <code className="text-teal-300">{proxyUrl}</code></li>
+                <li>• If proxy returns 404/error, the backend route <code className="text-teal-300">/api/vitallens</code> may not be configured</li>
+                <li>• Ensure camera permission is granted</li>
+              </ul>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Camera feed */}
+      <section className="glass-card !p-0 aspect-video overflow-hidden rounded-2xl">
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          className="w-full h-full object-cover"
+          style={{ background: '#000', minHeight: 200 }}
+        />
+        {!streaming && !scriptError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <p className="text-white/60 text-sm">Camera initializing…</p>
+          </div>
+        )}
+      </section>
+
+      {/* Vitals Cards */}
+      <AnimatePresence>
+        {vitals && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="grid grid-cols-3 gap-3"
+          >
+            {vitalCards.map(card => (
+              <div
+                key={card.label}
+                className={`glass-card !p-4 text-center ${card.bg} border ${card.border}`}
+              >
+                <div className={`flex justify-center mb-2 ${card.color}`}>{card.icon}</div>
+                <p className={`text-xl font-black ${card.color}`}>{card.value}</p>
+                <p className="text-[10px] text-white/50 font-bold uppercase mt-1">{card.label}</p>
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {vitals && (
+        <p className="text-xs text-white/40 text-center">
+          <Clock size={11} className="inline mr-1" />
+          Last reading: {new Date(vitals.timestamp).toLocaleTimeString()}
+        </p>
+      )}
+
+      {/* Raw result (collapsible debug) */}
+      {rawResult && (
+        <section className="glass-card !p-4">
+          <h3 className="font-bold text-sm mb-2 text-white/60">Raw VitalLens Result</h3>
+          <pre className="text-xs text-white/50 max-h-56 overflow-auto leading-relaxed">
+            {JSON.stringify(rawResult, null, 2)}
+          </pre>
+        </section>
+      )}
     </div>
   );
 }
