@@ -43,6 +43,36 @@
   .btn-primary {
     @apply px-6 py-2.5 font-semibold rounded-full transition-all active:scale-95;
   }
+
+  /* Fix select/option dark-theme readability */
+  .glass-input option,
+  select option {
+    background-color: #0f1a2e;
+    color: #e2e8f0;
+    padding: 8px 12px;
+  }
+
+  .glass-input option:checked,
+  select option:checked {
+    background-color: #1a3350;
+    color: #5eead4;
+  }
+
+  select.glass-input {
+    color: #e2e8f0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    cursor: pointer;
+  }
+
+  /* Floating label fix — use a semi-transparent dark bg instead of hardcoded color */
+  .floating-label {
+    @apply absolute -top-2 left-3 px-1.5 text-[10px] uppercase font-bold rounded z-10;
+    background: rgba(10, 20, 35, 0.95);
+    color: #5eead4;
+  }
 }
 
 /* Dynamic orbs using CSS variables */

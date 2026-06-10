@@ -19,14 +19,14 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { ThemeEditor } from './ThemeEditor';
 import { useLanguage } from '@/src/contexts/LanguageContext';
 
-const NAV_ITEMS = [
-  { path: '/nutrition', icon: Utensils, label: 'Nutrition', matchPrefixes: ['/nutrition'] },
-  { path: '/exercises', icon: Dumbbell, label: 'Exercise', matchPrefixes: ['/exercises'] },
-  { path: '/health', icon: ShieldAlert, label: 'Health', matchPrefixes: ['/health'], excludePrefixes: ['/health/tracking', '/health/monitor'] },
-  { path: '/profile', icon: User, label: 'Profile', matchPrefixes: ['/profile'] },
-  { path: '/health/tracking', icon: Activity, label: 'Live', matchPrefixes: ['/health/tracking', '/health/monitor'] },
-  { path: '/cooking', icon: ChefHat, label: 'Cooking', matchPrefixes: ['/cooking'] },
-  { path: '/costs', icon: Wallet, label: 'Cost', matchPrefixes: ['/costs'] },
+const NAV_ITEMS_BASE = [
+  { path: '/nutrition', icon: Utensils, labelEn: 'Nutrition', labelBn: 'পুষ্টি', matchPrefixes: ['/nutrition'] },
+  { path: '/exercises', icon: Dumbbell, labelEn: 'Exercise', labelBn: 'ব্যায়াম', matchPrefixes: ['/exercises'] },
+  { path: '/health', icon: ShieldAlert, labelEn: 'Health', labelBn: 'স্বাস্থ্য', matchPrefixes: ['/health'], excludePrefixes: ['/health/tracking', '/health/monitor'] },
+  { path: '/profile', icon: User, labelEn: 'Profile', labelBn: 'প্রোফাইল', matchPrefixes: ['/profile'] },
+  { path: '/health/tracking', icon: Activity, labelEn: 'Live', labelBn: 'লাইভ', matchPrefixes: ['/health/tracking', '/health/monitor'] },
+  { path: '/cooking', icon: ChefHat, labelEn: 'Cooking', labelBn: 'রান্না', matchPrefixes: ['/cooking'] },
+  { path: '/costs', icon: Wallet, labelEn: 'Cost', labelBn: 'খরচ', matchPrefixes: ['/costs'] },
 ];
 
 const isActiveNavItem = (
@@ -42,8 +42,8 @@ const isActiveNavItem = (
     : [item.path];
   const exclude = item.excludePrefixes || [];
 
-  const matched = include.some((prefix) => pathname.startsWith(prefix));
-  const excluded = exclude.some((prefix) => pathname.startsWith(prefix));
+  const matched = include.some((prefix: string) => pathname.startsWith(prefix));
+  const excluded = exclude.some((prefix: string) => pathname.startsWith(prefix));
   return matched && !excluded;
 };
 
@@ -51,12 +51,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { config } = useTheme();
   const { user, signOut } = useAuth();
-  const { language, toggleLanguage } = useLanguage();
+  const { language, toggleLanguage, t } = useLanguage();
+  const NAV_ITEMS = NAV_ITEMS_BASE.map(item => ({ ...item, label: language === 'en' ? item.labelEn : item.labelBn }));
   const [isThemeOpen, setIsThemeOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const isImmersiveExerciseRoute =
     location.pathname.startsWith('/exercises/coach/') || location.pathname === '/exercises/live-editor';
-  const activeNavItem = NAV_ITEMS.find((item) => isActiveNavItem(location.pathname, item));
+  const activeNavItem = NAV_ITEMS.find((item: any) => isActiveNavItem(location.pathname, item));
 
   return (
     <div className={cn('relative min-h-screen overflow-hidden desktop-scaled', isImmersiveExerciseRoute ? 'pb-4' : 'pb-24')}>
@@ -97,7 +98,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </div>
             )}
             <span className="font-medium text-sm primary-text">
-              {activeNavItem?.label || 'LifeSync AI'}
+              {activeNavItem?.label || t('LifeSync AI', 'লাইফসিঙ্ক এআই')}
             </span>
             <div className="w-1.5 h-1.5 rounded-full primary-color" />
           </div>
@@ -143,7 +144,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         className="w-full px-3 py-2 flex items-center gap-2 text-red-400 hover:bg-red-500/10 transition-colors text-sm font-bold"
                       >
                         <LogOut size={16} />
-                        Sign Out
+                        {t('Sign Out', 'লগআউট')}
                       </button>
                     </motion.div>
                   )}
@@ -162,8 +163,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <ShieldAlert size={20} />
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-widest text-white/40 font-bold">LifeSync AI</p>
-                    <h2 className="text-xl font-black">Control Center</h2>
+                    <p className="text-xs uppercase tracking-widest text-white/40 font-bold">{t('LifeSync AI', 'লাইফসিঙ্ক এআই')}</p>
+                    <h2 className="text-xl font-black">{t('Control Center', 'কন্ট্রোল সেন্টার')}</h2>
                   </div>
                 </div>
 
@@ -203,8 +204,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <div className="flex items-center gap-3">
                   <Palette size={20} />
                   <div>
-                    <p className="text-sm font-bold">Theme Editor</p>
-                    <p className="text-xs text-white/50">Adjust the desktop mood</p>
+                    <p className="text-sm font-bold">{t('Theme Editor', 'থিম এডিটর')}</p>
+                    <p className="text-xs text-white/50">{t('Adjust the desktop mood', 'ডেস্কটপ মুড পরিবর্তন করুন')}</p>
                   </div>
                 </div>
               </button>
