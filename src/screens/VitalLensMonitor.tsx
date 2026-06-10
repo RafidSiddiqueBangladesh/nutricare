@@ -10,11 +10,15 @@ const CDN_SRC = 'https://cdn.jsdelivr.net/npm/vitallens/dist/vitallens.browser.j
 function resolveAbsoluteUrl(pathname: string) {
   // Always use the backend proxy URL directly (not relative)
   const base = (API_BASE_URL?.trim() || '').replace(/\/$/, '');
+  let path = pathname.startsWith('/') ? pathname : `/${pathname}`;
   if (base.startsWith('http')) {
-    return `${base}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
+    if (base.endsWith('/api') && path.startsWith('/api/')) {
+      path = path.substring(4);
+    }
+    return `${base}${path}`;
   }
   const origin = window.location.origin;
-  return `${origin}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
+  return `${origin}${path}`;
 }
 
 type VitalLensClient = {
@@ -55,28 +59,25 @@ export default function VitalLensMonitor() {
       return;
     }
 
-    const script = document.createElement('script');
-    script.src   = CDN_SRC;
-    script.type  = 'module';
-    script.async = true;
-    script.onload = () => {
-      if (!mounted) return;
-      setScriptLoading(false);
-      // Give ESM a tick to register the global
-      setTimeout(() => {
-        if ((window as any).VitalLens) {
+    import(/* @vite-ignore */ CDN_SRC)
+      .then((module) => {
+        if (!mounted) return;
+        const VitalLens = module.VitalLens || module.default;
+        if (VitalLens) {
+          (window as any).VitalLens = VitalLens;
+          setScriptLoading(false);
           setScriptReady(true);
         } else {
+          setScriptLoading(false);
           setScriptError('VitalLens library loaded but global not found. This browser may not support the required features.');
         }
-      }, 300);
-    };
-    script.onerror = () => {
-      if (!mounted) return;
-      setScriptLoading(false);
-      setScriptError('Failed to load VitalLens CDN script. Check your internet connection or try a supported browser.');
-    };
-    document.head.appendChild(script);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setScriptLoading(false);
+        setScriptError('Failed to load VitalLens CDN script. Check your internet connection or try a supported browser.');
+        console.error('VitalLens import error:', err);
+      });
 
     return () => { mounted = false; };
   }, []);

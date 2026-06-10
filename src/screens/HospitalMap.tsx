@@ -280,7 +280,7 @@ export default function HospitalMap() {
       </section>
 
       {/* Map */}
-      <section className="aspect-square bg-[#002b2b] rounded-3xl relative overflow-hidden ring-1 ring-white/10 shadow-2xl">
+      <section className="w-full aspect-square lg:aspect-[16/10] lg:max-h-[450px] bg-[#002b2b] rounded-3xl relative overflow-hidden ring-1 ring-white/10 shadow-2xl">
         <MapContainer 
           center={mapCenter} 
           zoom={mapZoom} 

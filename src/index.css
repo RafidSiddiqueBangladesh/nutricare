@@ -207,3 +207,10 @@
   }
 }
 
+/* Scaling layout on PC/laptop screens to look compact like tablet */
+@media (min-width: 1024px) {
+  .desktop-scaled {
+    zoom: 0.85;
+  }
+}
+

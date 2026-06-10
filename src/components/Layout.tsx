@@ -57,7 +57,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const activeNavItem = NAV_ITEMS.find((item) => isActiveNavItem(location.pathname, item));
 
   return (
-    <div className={cn('relative min-h-screen overflow-hidden', isImmersiveExerciseRoute ? 'pb-4' : 'pb-24')}>
+    <div className={cn('relative min-h-screen overflow-hidden desktop-scaled', isImmersiveExerciseRoute ? 'pb-4' : 'pb-24')}>
       {/* Theme Editor */}
       <ThemeEditor isOpen={isThemeOpen} onClose={() => setIsThemeOpen(false)} />
 
