@@ -17,6 +17,7 @@ import { cn } from '@/src/lib/utils';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { ThemeEditor } from './ThemeEditor';
+import { useLanguage } from '@/src/contexts/LanguageContext';
 
 const NAV_ITEMS = [
   { path: '/nutrition', icon: Utensils, label: 'Nutrition', matchPrefixes: ['/nutrition'] },
@@ -50,6 +51,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { config } = useTheme();
   const { user, signOut } = useAuth();
+  const { language, toggleLanguage } = useLanguage();
   const [isThemeOpen, setIsThemeOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const isImmersiveExerciseRoute =
@@ -99,48 +101,56 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </span>
             <div className="w-1.5 h-1.5 rounded-full primary-color" />
           </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleLanguage}
+              className="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-all border border-white/20 text-xs font-bold text-teal-400 cursor-pointer shadow-md active:scale-95"
+            >
+              {language === 'en' ? 'বাংলা' : 'English'}
+            </button>
 
-          {user && (
-            <div className="relative">
-              <button
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors border border-white/20"
-              >
-                <div className="w-6 h-6 rounded-full primary-color flex items-center justify-center text-xs font-bold text-black">
-                  {user.name?.[0]?.toUpperCase() || 'U'}
-                </div>
-                <span className="text-xs font-bold text-white/80 max-w-[100px] truncate">{user.name}</span>
-                <ChevronDown size={14} className={`transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
-              </button>
+            {user && (
+              <div className="relative">
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors border border-white/20"
+                >
+                  <div className="w-6 h-6 rounded-full primary-color flex items-center justify-center text-xs font-bold text-black">
+                    {user.name?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                  <span className="text-xs font-bold text-white/80 max-w-[100px] truncate">{user.name}</span>
+                  <ChevronDown size={14} className={`transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
 
-              <AnimatePresence>
-                {isUserMenuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                    className="absolute top-full right-0 mt-2 w-48 glass-card rounded-2xl overflow-hidden z-50"
-                  >
-                    <div className="p-3 border-b border-white/10">
-                      <p className="text-xs text-white/60 uppercase tracking-wider font-bold">Account</p>
-                      <p className="text-sm font-bold mt-1">{user.name}</p>
-                      <p className="text-xs text-white/60">{user.email}</p>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        setIsUserMenuOpen(false);
-                        await signOut();
-                      }}
-                      className="w-full px-3 py-2 flex items-center gap-2 text-red-400 hover:bg-red-500/10 transition-colors text-sm font-bold"
+                <AnimatePresence>
+                  {isUserMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                      className="absolute top-full right-0 mt-2 w-48 glass-card rounded-2xl overflow-hidden z-50"
                     >
-                      <LogOut size={16} />
-                      Sign Out
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
+                      <div className="p-3 border-b border-white/10">
+                        <p className="text-xs text-white/60 uppercase tracking-wider font-bold">Account</p>
+                        <p className="text-sm font-bold mt-1">{user.name}</p>
+                        <p className="text-xs text-white/60">{user.email}</p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          setIsUserMenuOpen(false);
+                          await signOut();
+                        }}
+                        className="w-full px-3 py-2 flex items-center gap-2 text-red-400 hover:bg-red-500/10 transition-colors text-sm font-bold"
+                      >
+                        <LogOut size={16} />
+                        Sign Out
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
         </header>
 
         <div className="xl:grid xl:grid-cols-[300px_minmax(0,1fr)] xl:gap-8">

@@ -165,17 +165,44 @@ This report summary was generated using the local, secure LifeSync AI tracking d
   };
 
   const handleSendReport = () => {
+    let sentCount = 0;
+    
     if (sendViaWhatsApp) {
       const cleanPhone = selectedDoc.phone.replace(/[^0-9]/g, '');
       const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(healthSummaryText)}`;
       window.open(waUrl, '_blank');
+      sentCount++;
+      
+      // Also send to saved emergency numbers if auto-send is enabled
+      try {
+        const savedRaw = localStorage.getItem('wa-auto-send-settings');
+        if (savedRaw) {
+          const parsed = JSON.parse(savedRaw);
+          if (parsed.enabled && Array.isArray(parsed.numbers)) {
+            parsed.numbers.forEach((num: string) => {
+              if (num && num.trim()) {
+                const cleanNum = num.replace(/[^0-9]/g, '');
+                if (cleanNum) {
+                  // Stagger opening tabs to avoid browser popup blockers blocking multiple opens
+                  setTimeout(() => {
+                    window.open(`https://wa.me/${cleanNum}?text=${encodeURIComponent(healthSummaryText)}`, '_blank');
+                  }, 600 * sentCount);
+                  sentCount++;
+                }
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to auto-send to emergency numbers:', err);
+      }
     }
     
     if (sendViaSMS) {
       alert(`[Demo SMS Simulation] A text message has been queued to send to ${selectedDoc.name}'s phone (${selectedDoc.phone}).`);
     }
 
-    alert(`Report sent successfully to ${selectedDoc.name}!`);
+    alert(`Report sent successfully to ${selectedDoc.name}${sentCount > 1 ? ` and ${sentCount - 1} emergency contact(s)` : ''}!`);
     setReportModalOpen(false);
   };
 

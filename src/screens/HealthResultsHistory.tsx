@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ChevronLeft, BarChart3, TrendingUp, Calendar, Filter, Download, Trash2 } from 'lucide-react';
+import { ChevronLeft, BarChart3, TrendingUp, Calendar, Filter, Download, Trash2, Send } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 import { supabase } from '@/src/services/supabase';
 import { API_BASE_URL } from '@/src/services/api';
+import { useToast } from '@/src/hooks/use-toast';
 
 interface HealthResult {
   id: string;
@@ -33,7 +34,8 @@ interface HealthResult {
     label?: string;
     kind?: string;
     score?: number;
-    details?: Record<string, unknown>;
+    note?: string;
+    details?: Record<string, any>;
     device?: any;
   };
 }
@@ -46,6 +48,92 @@ export default function HealthResultsHistory() {
   const [filteredResults, setFilteredResults] = useState<HealthResult[]>(results);
   const [filterType, setFilterType] = useState<'all' | 'face' | 'pose' | 'hand' | 'vitals' | 'disease' | 'device' | 'bmi'>('all');
   const [searchDate, setSearchDate] = useState('');
+  const { toast } = useToast();
+  const [waSettings, setWaSettings] = useState<{ enabled: boolean; numbers: string[]; channel: 'whatsapp' | 'sms' }>({
+    enabled: false,
+    numbers: ['', '', ''],
+    channel: 'whatsapp'
+  });
+  const [activeChannel, setActiveChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('wa-auto-send-settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setWaSettings({
+          enabled: parsed.enabled ?? false,
+          numbers: Array.isArray(parsed.numbers) ? [...parsed.numbers, '', '', ''].slice(0, 3) : ['', '', ''],
+          channel: parsed.channel ?? 'whatsapp'
+        });
+        setActiveChannel(parsed.channel ?? 'whatsapp');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const handleAutoSendToggle = (channel: 'whatsapp' | 'sms') => {
+    if (channel === 'sms') {
+      alert('SMS Messenger feature is coming soon!');
+      return;
+    }
+    setActiveChannel(channel);
+    setWaSettings(prev => ({ ...prev, channel }));
+  };
+
+  const saveAutoSendSettings = () => {
+    try {
+      localStorage.setItem('wa-auto-send-settings', JSON.stringify(waSettings));
+      toast({ title: 'Settings Saved', description: 'Auto send configurations updated.' });
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error', description: 'Failed to save settings.' });
+    }
+  };
+
+  const shareSingleResult = (result: HealthResult) => {
+    let text = `LIFESYNC AI REPORT - ${getTypeLabel(result.type).toUpperCase()}\n`;
+    text += `Time: ${new Date(result.timestamp).toLocaleString()}\n`;
+    
+    if (result.type === 'vitals') {
+      text += `Heart Rate: ${result.data.heartRate || result.data.vitals?.heart_rate?.value || '--'} bpm\n`;
+      text += `Respiratory Rate: ${result.data.respiratoryRate || result.data.vitals?.respiratory_rate?.value || '--'} /min\n`;
+      text += `HRV: ${result.data.hrv || result.data.vitals?.hrv?.value || '--'} ms\n`;
+    } else if (result.type === 'pose') {
+      text += `Exercise: ${result.data.exerciseType || 'Workout'}\n`;
+      text += `Reps: ${result.data.repCount || 0}\n`;
+      text += `Form Score: ${result.data.formScore || 0}%\n`;
+    } else if (result.type === 'disease') {
+      text += `Screening: ${result.data.label || 'Vision/General'}\n`;
+      text += `Details: ${result.data.note || ''}\n`;
+    } else if (result.type === 'bmi') {
+      text += `BMI: ${result.data.bmi || ''} (${result.data.category || ''})\n`;
+      text += `Weight: ${result.data.weight || ''} kg, Height: ${result.data.height || ''} cm\n`;
+    } else {
+      text += `Details: ${JSON.stringify(result.data)}\n`;
+    }
+
+    const saved = localStorage.getItem('wa-auto-send-settings');
+    let numbers: string[] = [];
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      numbers = (parsed.numbers || []).filter((n: string) => n && n.trim());
+    }
+
+    if (numbers.length === 0) {
+      const num = prompt('Enter phone number to send via WhatsApp (e.g. +8801711000000):');
+      if (num) {
+        const clean = num.replace(/[^0-9]/g, '');
+        window.open(`https://wa.me/${clean}?text=${encodeURIComponent(text)}`, '_blank');
+      }
+    } else {
+      numbers.forEach((num: string) => {
+        const clean = num.replace(/[^0-9]/g, '');
+        window.open(`https://wa.me/${clean}?text=${encodeURIComponent(text)}`, '_blank');
+      });
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -278,6 +366,82 @@ export default function HealthResultsHistory() {
         </motion.div>
       </div>
 
+      {/* Auto Message Settings */}
+      <section className="glass-card !p-5 border-teal-500/30">
+        <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
+          <h3 className="text-sm font-bold text-white/85 uppercase flex items-center gap-2">
+            <Send size={14} className="text-teal-400" />
+            Auto Send Message Settings
+          </h3>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleAutoSendToggle('whatsapp')}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer",
+                activeChannel === 'whatsapp' ? "bg-teal-500 text-teal-950" : "bg-white/5 text-white/50 hover:bg-white/10"
+              )}
+            >
+              WhatsApp
+            </button>
+            <button
+              onClick={() => handleAutoSendToggle('sms')}
+              className="px-3 py-1 rounded-full text-xs font-bold bg-white/5 text-white/50 hover:bg-white/10 cursor-pointer"
+            >
+              SMS Messenger
+            </button>
+          </div>
+        </div>
+
+        {activeChannel === 'sms' ? (
+          <p className="text-xs text-yellow-300 font-semibold bg-yellow-500/10 border border-yellow-500/25 p-3 rounded-xl">
+            ⚠️ SMS Messenger feature is coming soon! Auto-send currently only supports WhatsApp integrations.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-white/60">Auto-send reports to emergency numbers?</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={waSettings.enabled}
+                  onChange={(e) => setWaSettings({ ...waSettings, enabled: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-500"></div>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[0, 1, 2].map((idx) => (
+                <div key={idx}>
+                  <label className="block text-[10px] uppercase font-bold text-white/50 mb-1">
+                    Emergency Contact {idx + 1}
+                  </label>
+                  <input
+                    type="text"
+                    value={waSettings.numbers[idx] || ''}
+                    placeholder="e.g. +8801711000000"
+                    onChange={(e) => {
+                      const newNums = [...waSettings.numbers];
+                      newNums[idx] = e.target.value;
+                      setWaSettings({ ...waSettings, numbers: newNums });
+                    }}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-teal-400 transition-all text-white"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={saveAutoSendSettings}
+              className="w-full py-2.5 bg-teal-500 hover:bg-teal-400 text-teal-950 rounded-xl font-bold text-xs transition-all active:scale-[0.98] cursor-pointer"
+            >
+              Save Contacts & Settings
+            </button>
+          </div>
+        )}
+      </section>
+
       {/* Category Breakdown */}
       <section className="glass-card !p-4">
         <h3 className="text-sm font-bold text-white/60 uppercase mb-3 flex items-center gap-2">
@@ -440,7 +604,7 @@ export default function HealthResultsHistory() {
                         <p className="text-xs text-white/50">{result.data.kind || 'device_watch'}</p>
                         {result.data.details?.metricLabel && (
                           <p className="text-xs text-white/60 mt-1">
-                            {result.data.details.metricLabel}: {result.data.details.value}{result.data.details.unit ? ` ${result.data.details.unit}` : ''}
+                            {String(result.data.details.metricLabel)}: {String(result.data.details.value)}{result.data.details.unit ? ` ${result.data.details.unit}` : ''}
                           </p>
                         )}
                       </div>
@@ -452,14 +616,26 @@ export default function HealthResultsHistory() {
                       </>
                     )}
 
-                    <motion.button
-                      whileHover={{ scale: 1.2 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => deleteResult(result.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 text-red-400 hover:bg-red-500/20 rounded transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </motion.button>
+                    <div className="flex gap-1">
+                      <motion.button
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => shareSingleResult(result)}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-teal-400 hover:bg-teal-500/20 rounded transition-all cursor-pointer"
+                        title="Share via WhatsApp"
+                      >
+                        <Send size={14} />
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => deleteResult(result.id)}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-red-400 hover:bg-red-500/20 rounded transition-all cursor-pointer"
+                        title="Delete"
+                      >
+                        <Trash2 size={14} />
+                      </motion.button>
+                    </div>
                   </div>
                 </div>
               </motion.div>

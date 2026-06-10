@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 
 const tests = [
+  { icon: Eye, label: "AI Vision Screening", description: "Interactive acuity, astigmatism & PD test", path: "/health/disease/screening", color: "from-[hsl(175,85%,45%)] to-[hsl(220,90%,55%)]" },
   { icon: Eye, label: "Color Blindness", description: "Ishihara plate test", path: "/health/disease/color-blindness", color: "from-[hsl(350,85%,55%)] to-[hsl(30,95%,55%)]" },
   { icon: Glasses, label: "Visual Acuity", description: "Snellen-style chart", path: "/health/disease/visual-acuity", color: "from-primary to-accent" },
   { icon: Contrast, label: "Astigmatism", description: "Radial line check", path: "/health/disease/astigmatism", color: "from-accent to-primary" },

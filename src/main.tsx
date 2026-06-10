@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -37,6 +38,8 @@ import PhysicalDeviceMonitor from './screens/PhysicalDeviceMonitor';
 import LiveExerciseEditor from './screens/LiveExerciseEditor';
 import HealthResultsHistory from './screens/HealthResultsHistory';
 import Profile from './screens/Profile';
+import ScreeningPage from './screens/disease/screening';
+import PianoPage from './screens/PianoPage';
 import ColorBlindnessPage from './screens/disease/ColorBlindnessPage';
 import VisualAcuityPage from './screens/disease/VisualAcuityPage';
 import AstigmatismPage from './screens/disease/AstigmatismPage';
@@ -180,13 +183,7 @@ function AppRoutes() {
       />
       <Route
         path="/health/diagnosis"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <AIDiagnosis />
-            </Layout>
-          </ProtectedRoute>
-        }
+        element={<Navigate to="/health/tracking" replace />}
       />
       <Route
         path="/health/prescription"
@@ -194,6 +191,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <PrescriptionAnalysis />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/health/piano"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <PianoPage />
             </Layout>
           </ProtectedRoute>
         }
@@ -261,6 +268,10 @@ function AppRoutes() {
       <Route
         path="/health/disease/color-blindness"
         element={<ProtectedRoute><Layout><ColorBlindnessPage /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/health/disease/screening"
+        element={<ProtectedRoute><Layout><ScreeningPage /></Layout></ProtectedRoute>}
       />
       <Route
         path="/health/disease/visual-acuity"
@@ -340,12 +351,14 @@ function AppRoutes() {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ThemeProvider>
-      <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
-    </ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </BrowserRouter>
+      </ThemeProvider>
+    </LanguageProvider>
   </StrictMode>,
 );

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Sparkles, Brain, Play, Loader2, RefreshCw } from 'lucide-react';
+import { ChevronLeft, Sparkles, Brain, Play, Loader2, RefreshCw, Music } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '@/src/contexts/ThemeContext';
 
@@ -201,6 +201,28 @@ export default function MoodSuggestions() {
             </motion.div>
           </AnimatePresence>
         )}
+      </section>
+
+      {/* Therapeutic Piano Tool Link */}
+      <section className="glass-card !p-5 border-teal-500/30 bg-teal-500/5 hover:scale-[1.01] transition-all">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-teal-500/10 p-2 rounded-2xl text-teal-400">
+              <Music size={20} />
+            </div>
+            <div>
+              <h4 className="font-black text-lg text-white">Interactive Piano Therapy</h4>
+              <p className="text-xs text-white/50">Play virtual piano using hand gestures to soothe your mind and lift your spirits.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => navigate('/health/piano')}
+            className="px-5 py-2.5 bg-teal-500 hover:bg-teal-400 text-teal-950 rounded-xl font-bold text-xs flex items-center justify-center gap-2 self-start sm:self-auto transition-all shadow-md active:scale-95 cursor-pointer"
+          >
+            <Play size={12} />
+            Open Virtual Piano
+          </button>
+        </div>
       </section>
 
       {/* YouTube therapy videos */}

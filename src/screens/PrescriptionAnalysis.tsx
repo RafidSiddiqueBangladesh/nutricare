@@ -20,6 +20,7 @@ import {
 import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 import { apiService } from '@/src/services/api';
 import { cn } from '@/src/lib/utils';
+import { appendHealthResult } from '@/src/lib/healthResults';
 
 interface ExtractedData {
   doctor: string;
@@ -96,6 +97,26 @@ export default function PrescriptionAnalysis() {
         };
 
         setRecords([newRecord, ...records]);
+
+        appendHealthResult({
+          id: newRecord.id,
+          type: 'disease',
+          timestamp: newRecord.timestamp,
+          data: {
+            label: `Prescription: ${extracted.doctor}`,
+            kind: 'Prescription OCR',
+            score: 100,
+            note: extracted.advice,
+            details: {
+              doctor: extracted.doctor,
+              medicines: extracted.medicines,
+              toEat: extracted.toEat,
+              toAvoid: extracted.toAvoid,
+              advice: extracted.advice,
+            }
+          }
+        });
+
         setActiveRecord(newRecord);
         setSuccess(true);
         // Reset picker

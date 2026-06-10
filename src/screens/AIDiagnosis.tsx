@@ -84,7 +84,7 @@ Based ONLY on this facial analysis and emotional state:
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-4">
         <button
-          onClick={() => navigate('/health')}
+          onClick={() => navigate('/health/disease')}
           className="p-2 hover:bg-white/10 rounded-full transition-all"
         >
           <ChevronLeft size={24} />
@@ -223,7 +223,7 @@ Based ONLY on this facial analysis and emotional state:
                       Scan Again
                     </button>
                     <button
-                      onClick={() => navigate('/health')}
+                      onClick={() => navigate('/health/disease')}
                       className="flex-1 py-3 bg-teal-500 hover:bg-teal-400 text-teal-950 rounded-xl font-bold text-sm transition-all"
                     >
                       Return to Health

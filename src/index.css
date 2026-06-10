@@ -212,5 +212,30 @@
   .desktop-scaled {
     zoom: 0.85;
   }
+
+  /* Upscale all text and heading elements on large screens to make them highly legible */
+  .desktop-scaled h1 {
+    font-size: 1.25em !important;
+  }
+  .desktop-scaled h2 {
+    font-size: 1.25em !important;
+  }
+  .desktop-scaled h3 {
+    font-size: 1.2em !important;
+  }
+  .desktop-scaled h4 {
+    font-size: 1.15em !important;
+  }
+  .desktop-scaled p, 
+  .desktop-scaled span, 
+  .desktop-scaled li, 
+  .desktop-scaled button, 
+  .desktop-scaled input, 
+  .desktop-scaled label, 
+  .desktop-scaled textarea, 
+  .desktop-scaled code, 
+  .desktop-scaled pre {
+    font-size: 1.15em !important;
+  }
 }
 
