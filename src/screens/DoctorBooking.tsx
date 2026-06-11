@@ -143,7 +143,7 @@ Generated: ${new Date().toLocaleString()}
    - System Vitals Scan: ${vitalEntry ? 'Analyzed successfully' : 'Not scanned'}
    - Device Monitoring: ${deviceEntry ? 'Connected & Synced' : 'No device connected'}
 ---------------------------------------------
-This report summary was generated using the local, secure LifeSync AI tracking database.`;
+This report summary was generated using the local, secure NutriCare AI tracking database.`;
 
     const warning = isVitalsCrucial
       ? `🚨 CRITICAL HEALTH ALERT: Patient status crucial. Please review immediately. Urgent hospital visit may be required.\n\n`

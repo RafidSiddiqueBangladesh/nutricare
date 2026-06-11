@@ -1,12 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ChevronLeft, BarChart3, TrendingUp, Calendar, Filter, Download, Trash2, Send } from 'lucide-react';
+import { ChevronLeft, BarChart3, TrendingUp, Calendar, Filter, Download, Trash2, Send, Globe, MessageCircle, CheckCircle, Phone } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 import { supabase } from '@/src/services/supabase';
 import { API_BASE_URL } from '@/src/services/api';
 import { useToast } from '@/src/hooks/use-toast';
+import { useLanguage } from '@/src/contexts/LanguageContext';
+
+const COUNTRY_CODES = [
+  { code: '+880', flag: '🇧🇩', name: 'BD' },
+  { code: '+91', flag: '🇮🇳', name: 'IN' },
+  { code: '+1', flag: '🇺🇸', name: 'US' },
+  { code: '+44', flag: '🇬🇧', name: 'UK' },
+  { code: '+966', flag: '🇸🇦', name: 'SA' },
+  { code: '+971', flag: '🇦🇪', name: 'AE' },
+  { code: '+60', flag: '🇲🇾', name: 'MY' },
+  { code: '+65', flag: '🇸🇬', name: 'SG' },
+  { code: '+61', flag: '🇦🇺', name: 'AU' },
+  { code: '+81', flag: '🇯🇵', name: 'JP' },
+];
 
 interface HealthResult {
   id: string;
@@ -42,6 +56,7 @@ interface HealthResult {
 
 export default function HealthResultsHistory() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [results, setResults] = useLocalStorage<HealthResult[]>('health-results', []);
   const [bmiLogs] = useLocalStorage<any[]>('health-metrics', []);
   const [backendResults, setBackendResults] = useState<HealthResult[]>([]);
@@ -49,12 +64,14 @@ export default function HealthResultsHistory() {
   const [filterType, setFilterType] = useState<'all' | 'face' | 'pose' | 'hand' | 'vitals' | 'disease' | 'device' | 'bmi'>('all');
   const [searchDate, setSearchDate] = useState('');
   const { toast } = useToast();
-  const [waSettings, setWaSettings] = useState<{ enabled: boolean; numbers: string[]; channel: 'whatsapp' | 'sms' }>({
+  const [waSettings, setWaSettings] = useState<{ enabled: boolean; numbers: string[]; countryCode: string; channel: 'whatsapp' | 'sms' }>({
     enabled: false,
     numbers: ['', '', ''],
+    countryCode: '+880',
     channel: 'whatsapp'
   });
   const [activeChannel, setActiveChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
+  const [lastSentStatus, setLastSentStatus] = useState<string>('');
 
   useEffect(() => {
     try {
@@ -64,6 +81,7 @@ export default function HealthResultsHistory() {
         setWaSettings({
           enabled: parsed.enabled ?? false,
           numbers: Array.isArray(parsed.numbers) ? [...parsed.numbers, '', '', ''].slice(0, 3) : ['', '', ''],
+          countryCode: parsed.countryCode ?? '+880',
           channel: parsed.channel ?? 'whatsapp'
         });
         setActiveChannel(parsed.channel ?? 'whatsapp');
@@ -92,46 +110,68 @@ export default function HealthResultsHistory() {
     }
   };
 
+  // Build a full international number from country code + local number
+  const buildFullNumber = (localNum: string, cc?: string): string => {
+    const countryCode = cc || waSettings.countryCode || '+880';
+    const digitsOnly = localNum.replace(/[^0-9]/g, '');
+    // If user already entered full international, use as-is
+    if (localNum.startsWith('+')) return digitsOnly;
+    // Strip leading 0 for BD numbers (01711... -> 1711...)
+    const cleaned = digitsOnly.startsWith('0') ? digitsOnly.slice(1) : digitsOnly;
+    return countryCode.replace('+', '') + cleaned;
+  };
+
   const shareSingleResult = (result: HealthResult) => {
-    let text = `LIFESYNC AI REPORT - ${getTypeLabel(result.type).toUpperCase()}\n`;
-    text += `Time: ${new Date(result.timestamp).toLocaleString()}\n`;
+    let text = `🏥 NUTRICARE AI — ${getTypeLabel(result.type).toUpperCase()}\n`;
+    text += `⏰ ${t('Time', 'সময়')}: ${new Date(result.timestamp).toLocaleString()}\n\n`;
     
     if (result.type === 'vitals') {
-      text += `Heart Rate: ${result.data.heartRate || result.data.vitals?.heart_rate?.value || '--'} bpm\n`;
-      text += `Respiratory Rate: ${result.data.respiratoryRate || result.data.vitals?.respiratory_rate?.value || '--'} /min\n`;
-      text += `HRV: ${result.data.hrv || result.data.vitals?.hrv?.value || '--'} ms\n`;
+      text += `❤️ ${t('Heart Rate', 'হার্ট রেট')}: ${result.data.heartRate || result.data.vitals?.heart_rate?.value || '--'} bpm\n`;
+      text += `🌬️ ${t('Respiratory Rate', 'শ্বাসের হার')}: ${result.data.respiratoryRate || result.data.vitals?.respiratory_rate?.value || '--'} /min\n`;
+      text += `📊 HRV: ${result.data.hrv || result.data.vitals?.hrv?.value || '--'} ms\n`;
     } else if (result.type === 'pose') {
-      text += `Exercise: ${result.data.exerciseType || 'Workout'}\n`;
-      text += `Reps: ${result.data.repCount || 0}\n`;
-      text += `Form Score: ${result.data.formScore || 0}%\n`;
+      text += `💪 ${t('Exercise', 'ব্যায়াম')}: ${result.data.exerciseType || 'Workout'}\n`;
+      text += `🔢 ${t('Reps', 'রেপস')}: ${result.data.repCount || 0}\n`;
+      text += `✅ ${t('Form Score', 'ফর্ম স্কোর')}: ${result.data.formScore || 0}%\n`;
     } else if (result.type === 'disease') {
-      text += `Screening: ${result.data.label || 'Vision/General'}\n`;
-      text += `Details: ${result.data.note || ''}\n`;
+      text += `🩺 ${t('Screening', 'স্ক্রিনিং')}: ${result.data.label || 'Vision/General'}\n`;
+      text += `📋 ${t('Details', 'বিবরণ')}: ${result.data.note || ''}\n`;
     } else if (result.type === 'bmi') {
-      text += `BMI: ${result.data.bmi || ''} (${result.data.category || ''})\n`;
-      text += `Weight: ${result.data.weight || ''} kg, Height: ${result.data.height || ''} cm\n`;
+      text += `⚖️ BMI: ${result.data.bmi || ''} (${result.data.category || ''})\n`;
+      text += `📏 ${t('Weight', 'ওজন')}: ${result.data.weight || ''} kg, ${t('Height', 'উচ্চতা')}: ${result.data.height || ''} cm\n`;
     } else {
-      text += `Details: ${JSON.stringify(result.data)}\n`;
+      text += `📋 ${t('Details', 'বিবরণ')}: ${JSON.stringify(result.data)}\n`;
     }
+    text += `\n${t('Sent via NutriCare AI', 'নিউট্রিকেয়ার এআই থেকে প্রেরিত')}`;
 
     const saved = localStorage.getItem('wa-auto-send-settings');
     let numbers: string[] = [];
+    let savedCC = '+880';
     if (saved) {
       const parsed = JSON.parse(saved);
       numbers = (parsed.numbers || []).filter((n: string) => n && n.trim());
+      savedCC = parsed.countryCode || '+880';
     }
 
     if (numbers.length === 0) {
-      const num = prompt('Enter phone number to send via WhatsApp (e.g. +8801711000000):');
+      const num = prompt(t(
+        'Enter your local phone number (e.g. 01711000000). Country code is added automatically.',
+        'আপনার লোকাল ফোন নম্বর লিখুন (যেমন 01711000000)। কান্ট্রি কোড স্বয়ংক্রিয়ভাবে যোগ হবে।'
+      ));
       if (num) {
-        const clean = num.replace(/[^0-9]/g, '');
-        window.open(`https://wa.me/${clean}?text=${encodeURIComponent(text)}`, '_blank');
+        const fullNum = buildFullNumber(num, savedCC);
+        window.open(`https://wa.me/${fullNum}?text=${encodeURIComponent(text)}`, '_blank');
+        setLastSentStatus(t('WhatsApp opened for 1 number', '১টি নম্বরে হোয়াটসঅ্যাপ খোলা হয়েছে'));
       }
     } else {
+      let sentCount = 0;
       numbers.forEach((num: string) => {
-        const clean = num.replace(/[^0-9]/g, '');
-        window.open(`https://wa.me/${clean}?text=${encodeURIComponent(text)}`, '_blank');
+        const fullNum = buildFullNumber(num, savedCC);
+        window.open(`https://wa.me/${fullNum}?text=${encodeURIComponent(text)}`, '_blank');
+        sentCount++;
       });
+      setLastSentStatus(t(`Report sent to ${sentCount} contact(s)`, `${sentCount}টি কন্টাক্টে রিপোর্ট পাঠানো হয়েছে`));
+      setTimeout(() => setLastSentStatus(''), 5000);
     }
   };
 
@@ -366,40 +406,43 @@ export default function HealthResultsHistory() {
         </motion.div>
       </div>
 
-      {/* Auto Message Settings */}
-      <section className="glass-card !p-5 border-teal-500/30">
+      {/* Auto Message Settings — UPGRADED */}
+      <section className="glass-card !p-5 border-green-500/20">
         <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-3">
           <h3 className="text-sm font-bold text-white/85 uppercase flex items-center gap-2">
-            <Send size={14} className="text-teal-400" />
-            Auto Send Message Settings
+            <MessageCircle size={14} className="text-green-400" />
+            {t('Auto Send Message Settings', 'অটো মেসেজ সেটিংস')}
           </h3>
           <div className="flex gap-2">
             <button
               onClick={() => handleAutoSendToggle('whatsapp')}
               className={cn(
-                "px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer",
-                activeChannel === 'whatsapp' ? "bg-teal-500 text-teal-950" : "bg-white/5 text-white/50 hover:bg-white/10"
+                "px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5",
+                activeChannel === 'whatsapp' ? "bg-green-500 text-white shadow-lg shadow-green-500/20" : "bg-white/5 text-white/50 hover:bg-white/10"
               )}
             >
+              <MessageCircle size={12} />
               WhatsApp
             </button>
             <button
               onClick={() => handleAutoSendToggle('sms')}
-              className="px-3 py-1 rounded-full text-xs font-bold bg-white/5 text-white/50 hover:bg-white/10 cursor-pointer"
+              className="px-3 py-1.5 rounded-full text-xs font-bold bg-white/5 text-white/50 hover:bg-white/10 cursor-pointer flex items-center gap-1.5"
             >
-              SMS Messenger
+              <Phone size={12} />
+              {t('SMS', 'এসএমএস')}
             </button>
           </div>
         </div>
 
         {activeChannel === 'sms' ? (
           <p className="text-xs text-yellow-300 font-semibold bg-yellow-500/10 border border-yellow-500/25 p-3 rounded-xl">
-            ⚠️ SMS Messenger feature is coming soon! Auto-send currently only supports WhatsApp integrations.
+            ⚠️ {t('SMS Messenger feature is coming soon! Auto-send currently only supports WhatsApp.', 'এসএমএস মেসেঞ্জার শীঘ্রই আসছে! বর্তমানে শুধুমাত্র হোয়াটসঅ্যাপ সাপোর্ট করে।')}
           </p>
         ) : (
           <div className="space-y-4">
+            {/* Auto-send toggle */}
             <div className="flex items-center justify-between">
-              <span className="text-xs text-white/60">Auto-send reports to emergency numbers?</span>
+              <span className="text-xs text-white/60">{t('Auto-send reports to emergency contacts?', 'ইমার্জেন্সি কন্টাক্টে অটো রিপোর্ট পাঠাবেন?')}</span>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
@@ -407,37 +450,94 @@ export default function HealthResultsHistory() {
                   onChange={(e) => setWaSettings({ ...waSettings, enabled: e.target.checked })}
                   className="sr-only peer"
                 />
-                <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-500"></div>
+                <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
               </label>
             </div>
 
+            {/* Country Code Selector */}
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-white/50 mb-1.5">
+                {t('Country Code', 'কান্ট্রি কোড')}
+              </label>
+              <select
+                value={waSettings.countryCode}
+                onChange={(e) => setWaSettings({ ...waSettings, countryCode: e.target.value })}
+                className="glass-input w-full sm:w-48"
+              >
+                {COUNTRY_CODES.map(cc => (
+                  <option key={cc.code} value={cc.code}>{cc.flag} {cc.code} ({cc.name})</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-white/30 mt-1">
+                {t('💡 Just enter your local number below — country code is added automatically!', '💡 শুধু নিচে আপনার লোকাল নম্বর দিন — কান্ট্রি কোড স্বয়ংক্রিয়ভাবে যোগ হবে!')}
+              </p>
+            </div>
+
+            {/* Emergency Contact Numbers */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[0, 1, 2].map((idx) => (
                 <div key={idx}>
                   <label className="block text-[10px] uppercase font-bold text-white/50 mb-1">
-                    Emergency Contact {idx + 1}
+                    {t(`Emergency Contact ${idx + 1}`, `জরুরি যোগাযোগ ${idx + 1}`)}
                   </label>
-                  <input
-                    type="text"
-                    value={waSettings.numbers[idx] || ''}
-                    placeholder="e.g. +8801711000000"
-                    onChange={(e) => {
-                      const newNums = [...waSettings.numbers];
-                      newNums[idx] = e.target.value;
-                      setWaSettings({ ...waSettings, numbers: newNums });
-                    }}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-teal-400 transition-all text-white"
-                  />
+                  <div className="flex">
+                    <span className="bg-white/5 border border-white/10 border-r-0 rounded-l-xl px-2 py-2 text-[10px] text-green-400 font-mono flex items-center">
+                      {waSettings.countryCode}
+                    </span>
+                    <input
+                      type="tel"
+                      value={waSettings.numbers[idx] || ''}
+                      placeholder={t('e.g. 01711000000', 'যেমন ০১৭১১০০০০০০')}
+                      onChange={(e) => {
+                        const newNums = [...waSettings.numbers];
+                        newNums[idx] = e.target.value.replace(/[^0-9]/g, '');
+                        setWaSettings({ ...waSettings, numbers: newNums });
+                      }}
+                      className="flex-1 bg-white/5 border border-white/10 rounded-r-xl px-3 py-2 text-xs focus:outline-none focus:border-green-400 transition-all text-white font-mono"
+                    />
+                  </div>
+                  {waSettings.numbers[idx] && (
+                    <p className="text-[9px] text-green-400/60 mt-0.5 font-mono">
+                      → {buildFullNumber(waSettings.numbers[idx])}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
 
             <button
               onClick={saveAutoSendSettings}
-              className="w-full py-2.5 bg-teal-500 hover:bg-teal-400 text-teal-950 rounded-xl font-bold text-xs transition-all active:scale-[0.98] cursor-pointer"
+              className="w-full py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 text-white rounded-xl font-bold text-xs transition-all active:scale-[0.98] cursor-pointer shadow-lg shadow-green-500/15 flex items-center justify-center gap-2"
             >
-              Save Contacts & Settings
+              <CheckCircle size={14} />
+              {t('Save Contacts & Settings', 'কন্টাক্ট ও সেটিংস সেভ করুন')}
             </button>
+
+            {/* Test Send Button */}
+            {waSettings.numbers.some(n => n.trim()) && (
+              <button
+                onClick={() => {
+                  const testResult: HealthResult = {
+                    id: 'test',
+                    type: 'vitals',
+                    timestamp: new Date().toISOString(),
+                    data: { heartRate: 72, respiratoryRate: 16, hrv: 65 }
+                  };
+                  shareSingleResult(testResult);
+                }}
+                className="w-full py-2 bg-white/5 hover:bg-white/10 text-green-400 rounded-xl font-bold text-xs transition-all border border-green-500/20 flex items-center justify-center gap-2"
+              >
+                <Send size={14} />
+                {t('Test Send — Send Sample Report Now', 'টেস্ট সেন্ড — এখনই স্যাম্পল রিপোর্ট পাঠান')}
+              </button>
+            )}
+          </div>
+        )}
+
+        {lastSentStatus && (
+          <div className="mt-3 flex items-center gap-2 text-green-400 text-xs font-bold bg-green-500/10 p-2 rounded-lg">
+            <CheckCircle size={14} />
+            {lastSentStatus}
           </div>
         )}
       </section>
@@ -621,8 +721,8 @@ export default function HealthResultsHistory() {
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={() => shareSingleResult(result)}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 text-teal-400 hover:bg-teal-500/20 rounded transition-all cursor-pointer"
-                        title="Share via WhatsApp"
+                        className="p-1.5 text-green-400 hover:bg-green-500/20 rounded transition-all cursor-pointer"
+                        title={t('Share via WhatsApp', 'হোয়াটসঅ্যাপে শেয়ার করুন')}
                       >
                         <Send size={14} />
                       </motion.button>

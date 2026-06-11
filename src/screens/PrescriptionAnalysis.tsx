@@ -302,7 +302,7 @@ export default function PrescriptionAnalysis() {
               <div>
                 <h2 className="text-2xl font-black">Upload Prescription Image</h2>
                 <p className="text-xs text-white/50 mt-1">
-                  Upload a photo of your prescription. LifeSync AI will extract doctor diet notes, forbidden foods, and medicine routines.
+                  Upload a photo of your prescription. NutriCare AI will extract doctor diet notes, forbidden foods, and medicine routines.
                 </p>
               </div>
 

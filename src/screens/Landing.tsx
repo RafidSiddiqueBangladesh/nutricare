@@ -62,6 +62,57 @@ function FloatingParticles() {
   );
 }
 
+// ─── Click Sound Effect (Web Audio API — no files needed) ────────────────────
+function playClickSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1200, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.12);
+  } catch (e) { /* silent fallback */ }
+}
+
+// ─── Hover Glow Card Wrapper ──────────────────────────────────────────
+function GlowCard({ children, className = '', onClick }: { children: React.ReactNode; className?: string; onClick?: () => void }) {
+  const cardRef = React.useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    cardRef.current.style.setProperty('--glow-x', `${x}px`);
+    cardRef.current.style.setProperty('--glow-y', `${y}px`);
+  };
+
+  return (
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onClick={() => { playClickSound(); onClick?.(); }}
+      className={`relative overflow-hidden group ${className}`}
+      style={{ isolation: 'isolate' }}
+    >
+      {/* Hover glow overlay */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0"
+        style={{
+          background: 'radial-gradient(250px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(94, 234, 212, 0.12), transparent 70%)',
+        }}
+      />
+      <div className="relative z-10">{children}</div>
+    </div>
+  );
+}
+
 // ─── Animated Counter ────────────────────────────────────────────────────────
 function AnimatedCounter({ value, suffix = '' }: { value: string; suffix?: string }) {
   return (
@@ -210,12 +261,12 @@ export default function Landing() {
     if (!whatsappNumber || whatsappNumber.length < 6) return;
     const cleanNum = (countryCode + whatsappNumber).replace(/[^0-9+]/g, '').replace('+', '');
     const msg = encodeURIComponent(
-      `🏥 LIFESYNC AI — ${t('Emergency Health Report', 'জরুরি স্বাস্থ্য রিপোর্ট')}\n\n` +
+      `🏥 NUTRICARE AI — ${t('Emergency Health Report', 'জরুরি স্বাস্থ্য রিপোর্ট')}\n\n` +
         `❤️ ${t('Heart Rate', 'হার্ট রেট')}: 72 bpm\n` +
         `🌬️ ${t('Resp. Rate', 'শ্বাসের হার')}: 16/min\n` +
         `📊 ${t('HRV', 'এইচআরভি')}: 65 ms\n` +
         `🩺 ${t('Status', 'অবস্থা')}: ${t('Normal — No immediate action needed', 'স্বাভাবিক — তাৎক্ষণিক ব্যবস্থার প্রয়োজন নেই')}\n\n` +
-        `${t('Sent automatically via LifeSync AI', 'লাইফসিঙ্ক এআই থেকে স্বয়ংক্রিয়ভাবে প্রেরিত')}`
+        `${t('Sent automatically via NutriCare AI', 'নিউট্রিকেয়ার এআই থেকে স্বয়ংক্রিয়ভাবে প্রেরিত')}`
     );
     window.open(`https://wa.me/${cleanNum}?text=${msg}`, '_blank');
     setDemoSent(true);
@@ -241,7 +292,7 @@ export default function Landing() {
               <Heart size={22} className="text-teal-950" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-white tracking-tight leading-none">LifeSync AI</h1>
+              <h1 className="text-xl font-black text-white tracking-tight leading-none">NutriCare AI</h1>
               <p className="text-[9px] text-teal-400/80 font-bold uppercase tracking-[0.15em]">{t('Digital Health Companion', 'ডিজিটাল হেলথ কম্প্যানিয়ন')}</p>
             </div>
           </div>
@@ -397,23 +448,26 @@ export default function Landing() {
           {coreFeatures.map((feat, i) => {
             const Icon = feat.icon;
             return (
-              <motion.div
+              <GlowCard
                 key={i}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.08 }}
-                className="bg-white/5 backdrop-blur-md border border-white/8 rounded-3xl p-6 hover:bg-white/8 hover:border-white/15 hover:scale-[1.02] transition-all group"
+                className="bg-white/5 backdrop-blur-md border border-white/8 rounded-3xl p-6 hover:bg-white/8 hover:border-white/15 hover:scale-[1.02] transition-all cursor-pointer"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${feat.gradient} flex items-center justify-center shadow-lg`}>
-                    <Icon size={22} className="text-white" />
+                <motion.div
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.08 }}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${feat.gradient} flex items-center justify-center shadow-lg`}>
+                      <Icon size={22} className="text-white" />
+                    </div>
+                    <span className="text-[8px] font-black text-teal-400 bg-teal-500/10 px-2.5 py-1 rounded-full border border-teal-500/20 tracking-widest uppercase">{feat.tag}</span>
                   </div>
-                  <span className="text-[8px] font-black text-teal-400 bg-teal-500/10 px-2.5 py-1 rounded-full border border-teal-500/20 tracking-widest uppercase">{feat.tag}</span>
-                </div>
-                <h4 className="text-lg font-bold text-white mb-2 group-hover:text-teal-300 transition-colors">{feat.title}</h4>
-                <p className="text-white/50 text-xs leading-relaxed">{feat.desc}</p>
-              </motion.div>
+                  <h4 className="text-lg font-bold text-white mb-2 group-hover:text-teal-300 transition-colors">{feat.title}</h4>
+                  <p className="text-white/50 text-xs leading-relaxed">{feat.desc}</p>
+                </motion.div>
+              </GlowCard>
             );
           })}
         </div>
@@ -434,21 +488,24 @@ export default function Landing() {
           {diseaseTests.map((test, i) => {
             const Icon = test.icon;
             return (
-              <motion.div
+              <GlowCard
                 key={i}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.04 }}
                 onClick={() => navigate('/auth/signup')}
-                className="bg-white/5 backdrop-blur-md border border-white/8 rounded-2xl p-4 hover:bg-white/10 hover:scale-[1.03] transition-all cursor-pointer group"
+                className="bg-white/5 backdrop-blur-md border border-white/8 rounded-2xl p-4 hover:bg-white/10 hover:scale-[1.03] transition-all cursor-pointer"
               >
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${test.color} flex items-center justify-center mb-3`}>
-                  <Icon size={18} className="text-white" />
-                </div>
-                <p className="font-bold text-sm text-white group-hover:text-teal-300 transition-colors">{test.label}</p>
-                <p className="text-[10px] text-white/40 mt-1">{test.desc}</p>
-              </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.04 }}
+                >
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${test.color} flex items-center justify-center mb-3`}>
+                    <Icon size={18} className="text-white" />
+                  </div>
+                  <p className="font-bold text-sm text-white group-hover:text-teal-300 transition-colors">{test.label}</p>
+                  <p className="text-[10px] text-white/40 mt-1">{test.desc}</p>
+                </motion.div>
+              </GlowCard>
             );
           })}
         </div>
@@ -693,8 +750,8 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 text-center text-white/35 text-xs font-mono">
           <p>
             {t(
-              '© 2026 LifeSync AI. All rights reserved. | AI-Powered Digital Health Companion | Privacy First',
-              '© ২০২৬ লাইফসিঙ্ক এআই। সর্বস্বত্ব সংরক্ষিত। | এআই চালিত ডিজিটাল হেলথ পার্টনার | গোপনীয়তা প্রথম'
+              '© 2026 NutriCare AI. All rights reserved. | AI-Powered Digital Health Companion | Privacy First',
+              '© ২০২৬ নিউট্রিকেয়ার এআই। সর্বস্বত্ব সংরক্ষিত। | এআই চালিত ডিজিটাল হেলথ পার্টনার | গোপনীয়তা প্রথম'
             )}
           </p>
         </div>
