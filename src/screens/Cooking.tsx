@@ -7,8 +7,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 import { InventoryItem } from '@/src/types';
 import { cn, formatCurrency, formatDate } from '@/src/lib/utils';
-
 import { apiService } from '@/src/services/api';
+import { useLanguage } from '@/src/contexts/LanguageContext';
 
 interface YouTubeVideo {
   id: string;
@@ -55,10 +55,11 @@ async function searchYouTubeRecipes(ingredients: string[]): Promise<YouTubeVideo
 }
 
 export default function Cooking() {
+  const { t } = useLanguage();
   const [items, setItems] = useLocalStorage<InventoryItem[]>('inventory-items', []);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
-  const [unit, setUnit] = useState('Default');
+  const [unit, setUnit] = useState('Kg');
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [videosLoading, setVideosLoading] = useState(false);
   const [videosError, setVideosError] = useState<string | null>(null);
@@ -90,69 +91,88 @@ export default function Cooking() {
     try {
       const results = await searchYouTubeRecipes(items.map(i => i.name));
       if (results.length === 0) {
-        setVideosError('No videos found. Try adding more ingredients.');
+        setVideosError(t('No videos found. Try adding more ingredients.', 'কোনো ভিডিও পাওয়া যায়নি। আরও উপকরণ যোগ করুন।'));
       }
       setVideos(results);
     } catch (err) {
-      setVideosError('Failed to fetch recipe ideas. Please try again.');
+      setVideosError(t('Failed to fetch recipe ideas. Please try again.', 'রেসিপি আইডিয়া আনতে ব্যর্থ। আবার চেষ্টা করুন।'));
     } finally {
       setVideosLoading(false);
     }
-  }, [items]);
+  }, [items, t]);
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Header Badge */}
       <div className="flex justify-center">
-        <div className="bg-teal-500/10 border border-teal-500/20 rounded-full px-4 py-1 flex items-center gap-2 text-teal-400">
+        <div className="bg-orange-500/10 border border-orange-500/20 rounded-full px-4 py-1.5 flex items-center gap-2 text-orange-400">
           <ChefHat size={14} />
-          <span className="text-xs font-bold uppercase tracking-wider">Cooking Assistant</span>
-          <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+          <span className="text-xs font-bold uppercase tracking-wider">{t('Cooking Assistant', 'রান্না সহকারী')}</span>
+          <div className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
         </div>
       </div>
 
-      <h1 className="text-2xl font-black px-2">What's in your kitchen?</h1>
+      <h1 className="text-2xl font-black px-2">{t("What's in your kitchen?", 'আপনার রান্নাঘরে কী আছে?')}</h1>
 
+      {/* Inventory Entry Card */}
       <section className="glass-card">
         <div className="flex items-center gap-2 mb-4">
-          <ChefHat className="text-teal-400" size={20} />
-          <h2 className="text-xl font-bold">Inventory Entry</h2>
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+            <ChefHat size={18} className="text-white" />
+          </div>
+          <h2 className="text-xl font-bold">{t('Inventory Entry', 'ইনভেন্টরি এন্ট্রি')}</h2>
         </div>
         <form onSubmit={addItem} className="flex flex-col gap-4">
           <div className="flex gap-2">
             <div className="relative flex-1">
               <input 
                 type="text" 
-                placeholder="Enter ingredient…"
+                placeholder={t('Enter ingredient…', 'উপকরণের নাম লিখুন…')}
                 className="glass-input w-full"
                 value={name}
                 onChange={e => setName(e.target.value)}
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
-                <Mic size={16} className="text-white/40" />
-                <Camera size={16} className="text-white/40" />
+                <Mic size={16} className="text-white/30" />
+                <Camera size={16} className="text-white/30" />
               </div>
             </div>
-            <button type="submit" className="px-4 py-2 bg-rose-400 text-rose-950 font-bold rounded-xl text-sm">Add</button>
+            <button type="submit" className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl text-sm hover:from-orange-400 hover:to-amber-400 active:scale-95 transition-all shadow-lg shadow-orange-500/15">
+              {t('Add', 'যোগ')}
+            </button>
           </div>
           
-          <input 
-            type="number" 
-            placeholder="Price"
-            className="glass-input"
-            value={price}
-            onChange={e => setPrice(e.target.value)}
-          />
+          {/* Price Input */}
+          <div className="relative">
+            <label className="floating-label">{t('Price (৳)', 'মূল্য (৳)')}</label>
+            <input 
+              type="number" 
+              placeholder={t('Price', 'মূল্য')}
+              className="glass-input w-full"
+              value={price}
+              onChange={e => setPrice(e.target.value)}
+            />
+          </div>
           
-          <select className="glass-input" value={unit} onChange={e => setUnit(e.target.value)}>
-            <option>Default</option>
-            <option>Kg</option>
-            <option>Piece</option>
-            <option>Litre</option>
-            <option>Pack</option>
-          </select>
+          {/* Unit Select — FIXED: Default is Kg, proper styling */}
+          <div className="relative">
+            <label className="floating-label">{t('Unit', 'একক')}</label>
+            <select 
+              className="glass-input w-full" 
+              value={unit} 
+              onChange={e => setUnit(e.target.value)}
+            >
+              <option value="Kg">{t('Kg (Kilogram)', 'কেজি (কিলোগ্রাম)')}</option>
+              <option value="Piece">{t('Piece', 'পিস')}</option>
+              <option value="Litre">{t('Litre', 'লিটার')}</option>
+              <option value="Pack">{t('Pack', 'প্যাক')}</option>
+              <option value="Dozen">{t('Dozen', 'ডজন')}</option>
+              <option value="500g">{t('500g', '৫০০ গ্রাম')}</option>
+            </select>
+          </div>
 
           <div className="glass-input flex items-center justify-between text-white/40 text-sm">
-            <span>Auto-expiry: Meat/Fish 3mo, Veg 1mo</span>
+            <span>{t('Auto-expiry: Meat/Fish 3mo, Veg 1mo', 'স্বয়ংক্রিয় মেয়াদ: মাংস/মাছ ৩ মাস, সবজি ১ মাস')}</span>
             <Calendar size={16} />
           </div>
 
@@ -160,40 +180,47 @@ export default function Cooking() {
             type="button"
             onClick={fetchRecipes}
             disabled={!items.length || videosLoading}
-            className="w-full py-3 bg-rose-400/20 hover:bg-rose-400/30 disabled:opacity-40 text-rose-400 rounded-full font-bold text-sm border border-rose-400/30 flex items-center justify-center gap-2 transition-all"
+            className="w-full py-3.5 bg-gradient-to-r from-red-500/20 to-orange-500/20 hover:from-red-500/30 hover:to-orange-500/30 disabled:opacity-40 text-red-400 rounded-2xl font-bold text-sm border border-red-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
           >
             {videosLoading ? (
-              <><Loader2 size={16} className="animate-spin" /> Finding Recipe Ideas…</>
+              <><Loader2 size={16} className="animate-spin" /> {t('Finding Recipe Ideas…', 'রেসিপি আইডিয়া খোঁজা হচ্ছে…')}</>
             ) : (
-              <><Youtube size={16} /> Get Cooking Ideas from YouTube</>
+              <><Youtube size={16} /> {t('Get Cooking Ideas from YouTube', 'ইউটিউব থেকে রান্নার আইডিয়া পান')}</>
             )}
           </button>
         </form>
       </section>
 
-      <section className="glass-card flex items-center gap-4 bg-teal-500/10">
-        <div className="w-12 h-12 rounded-2xl bg-teal-400/20 flex items-center justify-center text-teal-400">
-          <ChefHat size={28} />
+      {/* Summary Card */}
+      <section className="glass-card flex items-center gap-4 bg-gradient-to-r from-orange-500/10 to-amber-500/5 border-orange-500/20">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
+          <ChefHat size={26} className="text-white" />
         </div>
         <div>
-          <p className="text-xs font-bold text-teal-400 uppercase tracking-wider">Inventory Summary</p>
-          <h3 className="text-2xl font-black">{items.length} item{items.length !== 1 ? 's' : ''} in kitchen</h3>
+          <p className="text-xs font-bold text-orange-400 uppercase tracking-wider">{t('Inventory Summary', 'ইনভেন্টরি সারসংক্ষেপ')}</p>
+          <h3 className="text-2xl font-black">{items.length} {t(items.length !== 1 ? 'items in kitchen' : 'item in kitchen', items.length !== 1 ? 'টি উপকরণ রান্নাঘরে' : 'টি উপকরণ রান্নাঘরে')}</h3>
         </div>
       </section>
 
       {/* Smart tip */}
       <section>
-        <h2 className="text-xl font-bold mb-4 px-2">Smart Suggestions</h2>
+        <h2 className="text-xl font-bold mb-4 px-2">{t('Smart Suggestions', 'স্মার্ট পরামর্শ')}</h2>
         <div className="glass-card flex items-start gap-4">
-          <div className="bg-yellow-400/20 p-2 rounded-xl text-yellow-400">
-            <Lightbulb size={24} />
+          <div className="bg-yellow-500/15 p-2.5 rounded-xl text-yellow-400 shrink-0">
+            <Lightbulb size={22} />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-bold mb-1">Tip:</p>
+            <p className="text-sm font-bold mb-1">{t('Tip:', 'টিপস:')}</p>
             <p className="text-sm text-white/70">
               {items.length > 0
-                ? `With ${items.map(i => i.name).slice(0, 3).join(', ')}${items.length > 3 ? ` and ${items.length - 3} more` : ''}, click "Get Cooking Ideas" to find YouTube recipe videos!`
-                : 'Add inventory items above to get smart cooking suggestions and YouTube recipe videos.'}
+                ? t(
+                    `With ${items.map(i => i.name).slice(0, 3).join(', ')}${items.length > 3 ? ` and ${items.length - 3} more` : ''}, click "Get Cooking Ideas" to find YouTube recipe videos!`,
+                    `${items.map(i => i.name).slice(0, 3).join(', ')}${items.length > 3 ? ` এবং আরো ${items.length - 3}টি` : ''} দিয়ে রেসিপি ভিডিও পেতে "ইউটিউব থেকে রান্নার আইডিয়া পান" বাটনে ক্লিক করুন!`
+                  )
+                : t(
+                    'Add inventory items above to get smart cooking suggestions and YouTube recipe videos.',
+                    'স্মার্ট রান্নার পরামর্শ ও ইউটিউব রেসিপি ভিডিও পেতে উপরে উপকরণ যোগ করুন।'
+                  )}
             </p>
           </div>
         </div>
@@ -209,7 +236,7 @@ export default function Cooking() {
           >
             <h2 className="text-xl font-bold mb-4 px-2 flex items-center gap-2">
               <Youtube size={20} className="text-red-400" />
-              Recipe Ideas
+              {t('Recipe Ideas', 'রেসিপি আইডিয়া')}
             </h2>
 
             {videosError && (
@@ -259,10 +286,10 @@ export default function Cooking() {
 
       {/* Saved Inventory */}
       <section className="pb-12">
-        <h2 className="text-xl font-bold mb-4 px-2">Saved Inventory</h2>
+        <h2 className="text-xl font-bold mb-4 px-2">{t('Saved Inventory', 'সংরক্ষিত ইনভেন্টরি')}</h2>
         {items.length === 0 ? (
           <div className="glass-card text-center py-8 text-sm text-white/40 italic">
-            No items yet. Add your first ingredient above!
+            {t('No items yet. Add your first ingredient above!', 'এখনো কোনো উপকরণ নেই। উপরে আপনার প্রথম উপকরণ যোগ করুন!')}
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -274,8 +301,8 @@ export default function Cooking() {
                   </div>
                   <div>
                     <h4 className="font-bold text-base leading-tight">{item.name}</h4>
-                    <p className="text-xs text-white/60">1 {item.amountOption || 'unit'} · {item.price > 0 ? formatCurrency(item.price) : 'No price'}</p>
-                    <p className="text-[10px] text-teal-400 mt-1">Expires: {formatDate(new Date(item.expiryDate))}</p>
+                    <p className="text-xs text-white/60">1 {item.amountOption || t('unit', 'একক')} · {item.price > 0 ? formatCurrency(item.price) : t('No price', 'মূল্য নেই')}</p>
+                    <p className="text-[10px] text-teal-400 mt-1">{t('Expires:', 'মেয়াদ:')} {formatDate(new Date(item.expiryDate))}</p>
                   </div>
                 </div>
                 <button 

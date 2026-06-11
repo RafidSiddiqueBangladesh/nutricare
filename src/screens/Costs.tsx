@@ -6,6 +6,7 @@ import { CostEntry } from '@/src/types';
 import { InventoryItem } from '@/src/types';
 import { cn, formatCurrency } from '@/src/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useLanguage } from '@/src/contexts/LanguageContext';
 
 const CATEGORIES = ['Food', 'Health', 'Transport', 'Utilities', 'Vitamins', 'Other'];
 
@@ -15,6 +16,7 @@ const MONTHS = [
 ];
 
 export default function Costs() {
+  const { t } = useLanguage();
   const [entries, setEntries] = useLocalStorage<CostEntry[]>('cost-entries', []);
   const [inventoryItems] = useLocalStorage<InventoryItem[]>('inventory-items', []);
 
@@ -124,17 +126,17 @@ export default function Costs() {
       <div className="flex justify-center">
         <div className="bg-rose-500/10 border border-rose-500/20 rounded-full px-4 py-1 flex items-center gap-2 text-rose-400">
           <Wallet size={14} />
-          <span className="text-xs font-bold uppercase tracking-wider">Cost Tracker</span>
+          <span className="text-xs font-bold uppercase tracking-wider">{t('Cost Tracker', 'খরচ ট্র্যাকার')}</span>
           <div className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
         </div>
       </div>
 
       {/* Month / Year Selector */}
       <section className="glass-card">
-        <h2 className="text-2xl font-black mb-5">Analyze Costs</h2>
+        <h2 className="text-2xl font-black mb-5">{t('Analyze Costs', 'খরচ বিশ্লেষণ')}</h2>
         <div className="grid grid-cols-2 gap-4 mb-5">
           <div className="relative">
-            <label className="absolute -top-2 left-3 px-1 text-[10px] uppercase font-bold text-teal-400 bg-[#001a1a] rounded">Month</label>
+            <label className="floating-label">{t('Month', 'মাস')}</label>
             <select
               className="glass-input w-full"
               value={selectedMonth}
@@ -146,7 +148,7 @@ export default function Costs() {
             </select>
           </div>
           <div className="relative">
-            <label className="absolute -top-2 left-3 px-1 text-[10px] uppercase font-bold text-teal-400 bg-[#001a1a] rounded">Year</label>
+            <label className="floating-label">{t('Year', 'বছর')}</label>
             <select
               className="glass-input w-full"
               value={selectedYear}
@@ -160,7 +162,7 @@ export default function Costs() {
         </div>
 
         <p className="text-xs text-white/60 mb-4 px-1">
-          Showing: <span className="text-teal-300 font-bold">{MONTHS[selectedMonth]} {selectedYear}</span>
+          {t('Showing:', 'দেখাচ্ছে:')} <span className="text-teal-300 font-bold">{MONTHS[selectedMonth]} {selectedYear}</span>
         </p>
 
         <div className="flex gap-2 mb-5">
@@ -168,19 +170,19 @@ export default function Costs() {
             onClick={useCurrentMonth}
             className="flex-1 py-2 bg-rose-400/20 text-rose-400 rounded-xl text-xs font-bold border border-rose-400/40 flex items-center justify-center gap-2"
           >
-            <Calendar size={14} /> Use Current Month
+            <Calendar size={14} /> {t('Use Current Month', 'চলতি মাস ব্যবহার করুন')}
           </button>
           <button
             onClick={() => window.location.reload()}
             className="flex-1 py-2 bg-teal-500/20 text-teal-400 rounded-xl text-xs font-bold border border-teal-500/40 flex items-center justify-center gap-2"
           >
-            <RefreshCcw size={14} /> Refresh Data
+            <RefreshCcw size={14} /> {t('Refresh Data', 'ডাটা রিফ্রেশ')}
           </button>
         </div>
 
         {/* Category Filter */}
         <div className="relative mb-5">
-          <label className="absolute -top-2 left-3 px-1 text-[10px] uppercase font-bold text-teal-400 bg-[#001a1a] rounded">Category Filter</label>
+          <label className="floating-label">{t('Category Filter', 'ক্যাটাগরি ফিল্টার')}</label>
           <select className="glass-input w-full">
             <option>All</option>
             {CATEGORIES.map(c => <option key={c}>{c}</option>)}
@@ -190,7 +192,7 @@ export default function Costs() {
         {/* Toggles */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Include Cooking Inventory Data</span>
+            <span className="text-sm font-medium">{t('Include Cooking Inventory Data', 'কুকিং ইনভেন্টরি ডাটা অন্তর্ভুক্ত করুন')}</span>
             <button
               onClick={() => setIncludeInventory(v => !v)}
               className={`w-12 h-6 rounded-full relative transition-all ${includeInventory ? 'bg-rose-400' : 'bg-white/20'}`}
@@ -203,15 +205,15 @@ export default function Costs() {
 
       {/* Totals */}
       <section className="glass-card bg-teal-500/10">
-        <h3 className="text-teal-400 text-xs font-bold uppercase tracking-wider mb-2">Calculated Totals</h3>
-        <h2 className="text-3xl font-black mb-1">Month Total: {formatCurrency(monthTotal)}</h2>
+        <h3 className="text-teal-400 text-xs font-bold uppercase tracking-wider mb-2">{t('Calculated Totals', 'হিসাবকৃত মোট')}</h3>
+        <h2 className="text-3xl font-black mb-1">{t('Month Total:', 'মাসিক মোট:')} {formatCurrency(monthTotal)}</h2>
         <p className="text-xs text-white/50 mb-4">
-          Manual: {formatCurrency(manualTotal)} + Inventory: {formatCurrency(inventoryTotal)}
+          {t('Manual:', 'ম্যানুয়াল:')} {formatCurrency(manualTotal)} + {t('Inventory:', 'ইনভেন্টরি:')} {formatCurrency(inventoryTotal)}
         </p>
         <div className="grid grid-cols-3 gap-y-2 text-xs opacity-70">
-          <span>Year Total: {formatCurrency(yearTotal)}</span>
-          <span>This Week: {formatCurrency(weekTotal)}</span>
-          <span>Today: {formatCurrency(todayTotal)}</span>
+          <span>{t('Year Total:', 'বার্ষিক মোট:')} {formatCurrency(yearTotal)}</span>
+          <span>{t('This Week:', 'এই সপ্তাহ:')} {formatCurrency(weekTotal)}</span>
+          <span>{t('Today:', 'আজ:')} {formatCurrency(todayTotal)}</span>
         </div>
       </section>
 
@@ -220,7 +222,7 @@ export default function Costs() {
         <section className="glass-card">
           <h3 className="font-bold mb-3 flex items-center gap-2">
             <BarChart3 size={16} className="text-teal-400" />
-            Daily Breakdown — {MONTHS[selectedMonth]} {selectedYear}
+            {t('Daily Breakdown', 'দৈনিক বিশ্লেষণ')} — {MONTHS[selectedMonth]} {selectedYear}
           </h3>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
@@ -254,25 +256,25 @@ export default function Costs() {
       <section className="glass-card">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
           <Plus size={18} className="text-rose-400" />
-          Add New Cost
+          {t('Add New Cost', 'নতুন খরচ যোগ করুন')}
         </h2>
         <form onSubmit={addEntry} className="flex flex-col gap-4">
           <input
             type="text"
-            placeholder="Title (e.g. Vitamins)"
+            placeholder={t('Title (e.g. Vitamins)', 'শিরোনাম (যেমন ভিটামিন)')}
             className="glass-input"
             value={title}
             onChange={e => setTitle(e.target.value)}
           />
           <input
             type="number"
-            placeholder="Amount"
+            placeholder={t('Amount', 'পরিমাণ')}
             className="glass-input"
             value={amount}
             onChange={e => setAmount(e.target.value)}
           />
           <div className="relative">
-            <label className="absolute -top-2 left-3 px-1 text-[10px] uppercase font-bold text-teal-400 bg-[#001a1a] rounded">Category</label>
+            <label className="absolute -top-2 left-3 px-1 text-[10px] uppercase font-bold text-teal-400 bg-[#001a1a] rounded">{t('Category', 'ক্যাটাগরি')}</label>
             <select
               className="glass-input w-full"
               value={category}
@@ -282,7 +284,7 @@ export default function Costs() {
             </select>
           </div>
           <div className="relative">
-            <label className="absolute -top-2 left-3 px-1 text-[10px] uppercase font-bold text-teal-400 bg-[#001a1a] rounded">Date</label>
+            <label className="absolute -top-2 left-3 px-1 text-[10px] uppercase font-bold text-teal-400 bg-[#001a1a] rounded">{t('Date', 'তারিখ')}</label>
             <input
               type="date"
               className="glass-input w-full"
@@ -290,7 +292,7 @@ export default function Costs() {
               onChange={e => setEntryDate(e.target.value)}
             />
           </div>
-          <button type="submit" className="btn-primary w-full bg-rose-400 hover:bg-rose-300">Add Cost Entry</button>
+          <button type="submit" className="btn-primary w-full bg-rose-400 hover:bg-rose-300">{t('Add Cost Entry', 'খরচ এন্ট্রি যোগ করুন')}</button>
         </form>
       </section>
 
@@ -299,7 +301,7 @@ export default function Costs() {
         <section className="glass-card">
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
             <ChefHat size={18} className="text-teal-400" />
-            Cooking Inventory — {MONTHS[selectedMonth]}
+            {t('Cooking Inventory', 'কুকিং ইনভেন্টরি')} — {MONTHS[selectedMonth]}
           </h2>
           <div className="flex flex-col gap-2">
             {inventoryThisMonth.map(item => (
@@ -312,7 +314,7 @@ export default function Costs() {
               </div>
             ))}
             <div className="flex justify-between px-4 py-2 text-sm font-bold text-teal-300">
-              <span>Inventory Subtotal</span>
+              <span>{t('Inventory Subtotal', 'ইনভেন্টরি সাবটোটাল')}</span>
               <span>{formatCurrency(inventoryTotal)}</span>
             </div>
           </div>
@@ -321,10 +323,10 @@ export default function Costs() {
 
       {/* Manual Entries */}
       <section className="pb-12">
-        <h2 className="text-xl font-bold mb-4 px-2">Manual Entries — {MONTHS[selectedMonth]}</h2>
+        <h2 className="text-xl font-bold mb-4 px-2">{t('Manual Entries', 'ম্যানুয়াল এন্ট্রি')} — {MONTHS[selectedMonth]}</h2>
         {filteredEntries.length === 0 ? (
           <div className="glass-card text-center py-8 text-sm text-white/40 italic">
-            No manual entries for {MONTHS[selectedMonth]} {selectedYear}.
+            {t(`No manual entries for ${MONTHS[selectedMonth]} ${selectedYear}.`, `${MONTHS[selectedMonth]} ${selectedYear}-এ কোনো ম্যানুয়াল এন্ট্রি নেই।`)}
           </div>
         ) : (
           <div className="flex flex-col gap-2">

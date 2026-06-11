@@ -5,6 +5,7 @@ import { useLocalStorage } from '@/src/hooks/useLocalStorage';
 import { ExerciseLog } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '@/src/contexts/LanguageContext';
 
 const EXERCISES = [
   {
@@ -32,6 +33,7 @@ const EXERCISES = [
 
 export default function Exercise() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [logs, setLogs] = useLocalStorage<any[]>('exercise-logs', []);
   const [healthResults, setHealthResults] = useLocalStorage<any[]>('health-results', []);
 
@@ -96,7 +98,7 @@ export default function Exercise() {
       <div className="flex justify-center">
         <div className="bg-teal-500/10 border border-teal-500/20 rounded-full px-4 py-1 flex items-center gap-2 text-teal-400">
           <Activity size={14} />
-          <span className="text-xs font-bold uppercase tracking-wider">Exercise Module</span>
+          <span className="text-xs font-bold uppercase tracking-wider">{t('Exercise Module', 'ব্যায়াম মডিউল')}</span>
           <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
         </div>
       </div>
@@ -108,8 +110,8 @@ export default function Exercise() {
               <Activity size={20} className="animate-spin" style={{ animationDuration: '4s' }} />
             </div>
             <div>
-              <p className="text-sm font-bold text-teal-200">Active Session: {EXERCISES.find(e => e.id === activeTimerExId)?.title}</p>
-              <p className="text-xs text-white/50">Completed workout will log as 10 minutes</p>
+              <p className="text-sm font-bold text-teal-200">{t('Active Session:', 'সক্রিয় সেশন:')} {EXERCISES.find(e => e.id === activeTimerExId)?.title}</p>
+              <p className="text-xs text-white/50">{t('Completed workout will log as 10 minutes', 'সম্পন্ন ওয়ার্কআউট ১০ মিনিট হিসেবে লগ হবে')}</p>
             </div>
           </div>
           <div className="text-2xl font-black text-teal-400 font-mono">
@@ -131,15 +133,15 @@ export default function Exercise() {
               <Dumbbell className="text-teal-400" size={18} />
               <div>
                 <h3 className="font-bold leading-tight">{ex.title}</h3>
-                <p className="text-[10px] text-white/40">Duration: {ex.duration}</p>
+                <p className="text-[10px] text-white/40">{t('Duration:', 'সময়:')} {ex.duration}</p>
               </div>
             </div>
 
             <div className="mb-4 rounded-2xl overflow-hidden ring-1 ring-white/10 bg-gradient-to-br from-teal-500/10 via-cyan-500/5 to-transparent p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs text-white/50 uppercase tracking-wider mb-1">Tutorial</p>
-                  <p className="text-sm font-semibold text-white/80">Open coach for live timer and guide</p>
+                  <p className="text-xs text-white/50 uppercase tracking-wider mb-1">{t('Tutorial', 'টিউটোরিয়াল')}</p>
+                  <p className="text-sm font-semibold text-white/80">{t('Open coach for live timer and guide', 'লাইভ টাইমার ও গাইডের জন্য কোচ খুলুন')}</p>
                 </div>
                 <button
                   onClick={() => window.open(ex.videoUrl, '_blank', 'noopener,noreferrer')}
@@ -162,14 +164,14 @@ export default function Exercise() {
                 className="flex-1 py-2 bg-blue-500 hover:bg-blue-400 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
               >
                 <Video size={14} />
-                Start Coach
+                {t('Start Coach', 'কোচ শুরু')}
               </button>
               <button 
                 onClick={() => handleMarkDone(ex.id)}
                 className="flex-1 py-2 bg-teal-500 hover:bg-teal-400 text-teal-950 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20"
               >
                 <CheckCircle size={14} />
-                Mark Done
+                {t('Mark Done', 'সম্পন্ন')}
               </button>
             </div>
           </motion.div>
@@ -187,8 +189,8 @@ export default function Exercise() {
             <div className="flex items-center gap-3">
               <div className="text-3xl">⚡</div>
               <div className="text-left">
-                <h3 className="font-bold text-teal-400">Live Exercise Editor</h3>
-                <p className="text-[10px] text-white/60">Track any exercise with real-time rep counter</p>
+                <h3 className="font-bold text-teal-400">{t('Live Exercise Editor', 'লাইভ এক্সারসাইজ এডিটর')}</h3>
+                <p className="text-[10px] text-white/60">{t('Track any exercise with real-time rep counter', 'রিয়েল-টাইম রেপ কাউন্টার দিয়ে যেকোনো ব্যায়াম ট্র্যাক করুন')}</p>
               </div>
             </div>
             <Zap className="text-teal-400" size={24} />
