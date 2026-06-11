@@ -343,7 +343,7 @@ export default function Profile() {
         {[
           { label: 'Open BMI Calculator', path: '/health/bmi', from: ph, to: ph + 40 },
           { label: 'Open Health Results History', path: '/health/history', from: ph + 40, to: ph + 80 },
-          { label: 'Face Monitor → Mood', path: '/tracking/face', from: ph + 80, to: ph + 120 },
+          { label: 'Face Monitor → Mood', path: '/health/monitor/face', from: ph + 80, to: ph + 120 },
         ].map(btn => (
           <button
             key={btn.path}

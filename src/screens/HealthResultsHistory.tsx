@@ -142,7 +142,14 @@ export default function HealthResultsHistory() {
     } else {
       text += `📋 ${t('Details', 'বিবরণ')}: ${JSON.stringify(result.data)}\n`;
     }
-    text += `\n${t('Sent via NutriCare AI', 'নিউট্রিকেয়ার এআই থেকে প্রেরিত')}`;
+    text += `\n━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `🚑 ${t('Emergency Numbers', 'জরুরি নম্বর')}:\n`;
+    text += `• ${t('Ambulance (BD)', 'অ্যাম্বুলেন্স (বাংলাদেশ)')}: 999\n`;
+    text += `• ${t('Hospital Hotline', 'হাসপাতাল হটলাইন')}: 16789\n`;
+    text += `• ${t('Health Helpline', 'স্বাস্থ্য হেল্পলাইন')}: 10666\n`;
+    text += `• ${t('Fire Service', 'ফায়ার সার্ভিস')}: 9555\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `${t('Sent via NutriCare AI', 'নিউট্রিকেয়ার এআই থেকে প্রেরিত')}`;
 
     const saved = localStorage.getItem('wa-auto-send-settings');
     let numbers: string[] = [];
