@@ -214,16 +214,16 @@ Respond with JSON: { detected: boolean, confidence: number, formScore: number, s
   }
 
   // Nutrition - Parse Voice Transcription
-  async parseVoiceTranscription(transcription: string) {
-    return this.request('/nutrition/parse-voice', {
+  async parseVoiceTranscription(transcription: string): Promise<any> {
+    return this.request<any>('/nutrition/parse-voice', {
       method: 'POST',
       body: JSON.stringify({ transcription }),
     });
   }
 
   // Nutrition - Parse Text Input
-  async parseNutritionText(text: string) {
-    return this.request('/nutrition/parse-text', {
+  async parseNutritionText(text: string): Promise<any> {
+    return this.request<any>('/nutrition/parse-text', {
       method: 'POST',
       body: JSON.stringify({ text }),
     });

@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   ChefHat, Package, Tag, Calendar, List, Utensils, Trash2, Mic, Camera,
-  Lightbulb, Youtube, Loader2, Search, ExternalLink,
+  Lightbulb, Youtube, Loader2, Search, ExternalLink, AlertCircle, CheckCircle, Loader
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLocalStorage } from '@/src/hooks/useLocalStorage';
@@ -55,7 +55,7 @@ async function searchYouTubeRecipes(ingredients: string[]): Promise<YouTubeVideo
 }
 
 export default function Cooking() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [items, setItems] = useLocalStorage<InventoryItem[]>('inventory-items', []);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
@@ -64,6 +64,172 @@ export default function Cooking() {
   const [videosLoading, setVideosLoading] = useState(false);
   const [videosError, setVideosError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+
+  // Voice & OCR state
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<'idle' | 'voice' | 'image'>('idle');
+  const [statusMessage, setStatusMessage] = useState('');
+  const [statusType, setStatusType] = useState<'success' | 'error'>('success');
+  const [parsedItems, setParsedItems] = useState<any[]>([]);
+  const [showParsedItems, setShowParsedItems] = useState(false);
+
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-clear status message after 3 seconds
+  useEffect(() => {
+    if (statusMessage) {
+      const timer = setTimeout(() => {
+        setStatusMessage('');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [statusMessage]);
+
+  // Voice recording handlers using browser SpeechRecognition
+  const startVoiceRecording = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setStatusType('error');
+      setStatusMessage(t('Speech recognition not supported in this browser', 'এই ব্রাউজারে স্পিচ রিকগনিশন সমর্থিত নয়'));
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = language === 'bn' ? 'bn-BD' : 'en-US';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        setProcessingStatus('voice');
+        setStatusMessage(t('Listening... Speak your ingredients', 'শুনছি... আপনার উপকরণের নাম বলুন'));
+      };
+
+      recognition.onerror = (e: any) => {
+        console.error('Speech recognition error:', e);
+        setIsRecording(false);
+        setStatusType('error');
+        setStatusMessage(t('Error recognizing speech', 'স্পিচ রিকগনিশন ত্রুটি'));
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognition.onresult = async (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript) {
+          setStatusMessage(t(`Transcribed: "${transcript}"`, `অনুলিখন: "${transcript}"`));
+          await sendVoiceTranscription(transcript);
+        } else {
+          setStatusType('error');
+          setStatusMessage(t('Could not detect any speech', 'কোনো কথা সনাক্ত করা যায়নি'));
+        }
+      };
+
+      (window as any)._activeCookingRecognition = recognition;
+      recognition.start();
+    } catch (error) {
+      console.error('Speech recognition startup error:', error);
+      setStatusType('error');
+      setStatusMessage(t('Failed to start speech recognition', 'স্পিচ রিকগনিশন শুরু করতে ব্যর্থ'));
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if ((window as any)._activeCookingRecognition) {
+      try {
+        (window as any)._activeCookingRecognition.stop();
+      } catch (err) {
+        console.error(err);
+      }
+      setIsRecording(false);
+    }
+  };
+
+  const sendVoiceTranscription = async (transcript: string) => {
+    try {
+      setIsProcessing(true);
+      setProcessingStatus('voice');
+      setStatusMessage(t('Analyzing transcription...', 'অনুলিখন বিশ্লেষণ করা হচ্ছে...'));
+
+      const response = await apiService.parseVoiceTranscription(transcript);
+
+      if (response.success && response.data?.items) {
+        setParsedItems(response.data.items);
+        setShowParsedItems(true);
+        setStatusType('success');
+        setStatusMessage(t(`Found ${response.data.count} ingredient(s) from voice`, `ভয়েস থেকে ${response.data.count}টি উপকরণ পাওয়া গেছে`));
+      } else {
+        setStatusType('error');
+        setStatusMessage(t('Could not parse transcription', 'অনুলিখন বিশ্লেষণ করা যায়নি'));
+      }
+    } catch (error) {
+      console.error('Voice parsing error:', error);
+      setStatusType('error');
+      setStatusMessage(t('Failed to parse voice transcription', 'ভয়েস অনুলিখন বিশ্লেষণ ব্যর্থ'));
+    } finally {
+      setIsProcessing(false);
+      setProcessingStatus('idle');
+    }
+  };
+
+  const handleImageCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsProcessing(true);
+      setProcessingStatus('image');
+      setStatusMessage(t('Processing image with OCR...', 'ইমেজ OCR দিয়ে প্রক্রিয়া করা হচ্ছে...'));
+
+      const response = await apiService.processNutritionImage(file);
+
+      if (response.success && response.data?.items) {
+        setParsedItems(response.data.items);
+        setShowParsedItems(true);
+        setStatusType('success');
+        setStatusMessage(t(`Found ${response.data.count} ingredient(s) from image`, `ইমেজ থেকে ${response.data.count}টি উপকরণ পাওয়া গেছে`));
+      } else {
+        setStatusType('error');
+        setStatusMessage(t('Could not process image', 'ইমেজ প্রক্রিয়াকরণ করা যায়নি'));
+      }
+    } catch (error) {
+      console.error('OCR error:', error);
+      const apiError = error as Error & { status?: number };
+      setStatusType('error');
+      setStatusMessage(
+        apiError.status === 401
+          ? t('Please sign in to use OCR scanning.', 'OCR স্ক্যানিং ব্যবহার করতে লগইন করুন।')
+          : t('Failed to process image', 'ইমেজ প্রক্রিয়াকরণ ব্যর্থ')
+      );
+    } finally {
+      setIsProcessing(false);
+      setProcessingStatus('idle');
+      if (cameraInputRef.current) {
+        cameraInputRef.current.value = '';
+      }
+    }
+  };
+
+  const addParsedIngredients = () => {
+    const newItems: InventoryItem[] = parsedItems.map((item) => ({
+      id: crypto.randomUUID(),
+      name: item.name,
+      price: 0,
+      expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      amountOption: `${item.quantity} ${item.unit}`,
+      addedAt: Date.now(),
+    }));
+
+    setItems([...newItems, ...items]);
+    setParsedItems([]);
+    setShowParsedItems(false);
+    setStatusMessage(t('Ingredients added successfully!', 'উপকরণগুলো সফলভাবে যোগ হয়েছে!'));
+    setStatusType('success');
+  };
 
   const addItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,6 +269,88 @@ export default function Cooking() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Status Message */}
+      {statusMessage && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className={cn(
+            'p-3 rounded-2xl flex items-center gap-2 text-sm font-bold',
+            statusType === 'success'
+              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+          )}
+        >
+          {statusType === 'success' ? (
+            <CheckCircle size={18} />
+          ) : (
+            <AlertCircle size={18} />
+          )}
+          {statusMessage}
+        </motion.div>
+      )}
+
+      {/* Parsed Ingredients Preview */}
+      {showParsedItems && parsedItems.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="glass-card border border-orange-500/30 bg-orange-500/10"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-orange-400 flex items-center gap-2">
+              <CheckCircle size={20} />
+              {t('Parsed Ingredients', 'বিশ্লেষিত উপকরণের তালিকা')}
+            </h3>
+            <button
+              onClick={() => setShowParsedItems(false)}
+              className="text-white/60 hover:text-white text-2xl"
+              type="button"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="space-y-2 mb-4">
+            {parsedItems.map((item, i) => (
+              <div
+                key={i}
+                className="p-3 bg-white/5 rounded-xl flex justify-between items-center"
+              >
+                <div>
+                  <p className="font-bold capitalize">{item.name}</p>
+                  <p className="text-xs text-white/60">
+                    {item.quantity} {item.unit} ({item.grams}g)
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-orange-400">{item.calories.toFixed(0)} cal</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={addParsedIngredients}
+              disabled={isProcessing}
+              className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl text-sm hover:from-orange-400 hover:to-amber-400 disabled:opacity-50 transition-all shadow-lg"
+              type="button"
+            >
+              ✓ {t('Add All Ingredients', 'সবগুলো যোগ করুন')}
+            </button>
+            <button
+              onClick={() => setShowParsedItems(false)}
+              className="flex-1 px-4 py-2.5 bg-white/5 rounded-xl font-bold hover:bg-white/10 transition-colors text-sm"
+              type="button"
+            >
+              {t('Cancel', 'বাতিল')}
+            </button>
+          </div>
+        </motion.section>
+      )}
+
       {/* Header Badge */}
       <div className="flex justify-center">
         <div className="bg-orange-500/10 border border-orange-500/20 rounded-full px-4 py-1.5 flex items-center gap-2 text-orange-400">
@@ -128,17 +376,51 @@ export default function Cooking() {
               <input 
                 type="text" 
                 placeholder={t('Enter ingredient…', 'উপকরণের নাম লিখুন…')}
-                className="glass-input w-full"
+                className="glass-input w-full pr-20"
                 value={name}
                 onChange={e => setName(e.target.value)}
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
-                <Mic size={16} className="text-white/30" />
-                <Camera size={16} className="text-white/30" />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 z-20">
+                {/* Voice button */}
+                <button
+                  type="button"
+                  onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
+                  disabled={isProcessing && processingStatus === 'image'}
+                  className={cn(
+                    'p-1.5 transition-all rounded-lg',
+                    isRecording
+                      ? 'animate-pulse bg-orange-500/30 text-orange-400'
+                      : 'hover:bg-white/10 text-white/50 hover:text-orange-400'
+                  )}
+                  title={isRecording ? t('Click to stop recording', 'রেকর্ডিং বন্ধ করুন') : t('Click to record voice', 'ভয়েস রেকর্ড করুন')}
+                >
+                  <Mic size={16} />
+                </button>
+
+                {/* Camera button */}
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={isProcessing || isRecording}
+                  className="p-1.5 hover:bg-white/10 text-white/50 hover:text-orange-400 transition-colors disabled:opacity-50 rounded-lg"
+                  title={t('Click to capture image', 'ইমেজ ক্যাপচার করুন')}
+                >
+                  <Camera size={16} />
+                </button>
+
+                {/* Hidden input */}
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleImageCapture}
+                  className="hidden"
+                />
               </div>
             </div>
-            <button type="submit" className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl text-sm hover:from-orange-400 hover:to-amber-400 active:scale-95 transition-all shadow-lg shadow-orange-500/15">
-              {t('Add', 'যোগ')}
+            <button type="submit" disabled={isProcessing} className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl text-sm hover:from-orange-400 hover:to-amber-400 active:scale-95 transition-all shadow-lg shadow-orange-500/15 disabled:opacity-50">
+              {isProcessing && processingStatus === 'idle' ? <Loader size={18} className="animate-spin" /> : t('Add', 'যোগ')}
             </button>
           </div>
           

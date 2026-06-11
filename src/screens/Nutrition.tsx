@@ -16,7 +16,7 @@ interface ParsedFoodItem {
 }
 
 export default function Nutrition() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [logs, setLogs] = useLocalStorage<FoodLog[]>('nutrition-logs', []);
   const [foodName, setFoodName] = useState('');
   const [amountOption, setAmountOption] = useState('Default');
@@ -40,63 +40,77 @@ export default function Nutrition() {
 
   const totalCalories = logs.reduce((sum, log) => sum + log.calories, 0);
 
-  // Voice Recording
-  const startVoiceRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        audioChunksRef.current.push(e.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        await processVoiceAudio(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      setProcessingStatus('voice');
-      setStatusMessage(t('Recording... speak your food items', 'রেকর্ডিং... আপনার খাবারের নাম বলুন'));
-    } catch (error) {
-      console.error('Microphone error:', error);
+  // Voice Recording using webkitSpeechRecognition
+  const startVoiceRecording = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
       setStatusType('error');
-      setStatusMessage(t('Unable to access microphone', 'মাইক্রোফোন অ্যাক্সেস করা যায়নি'));
+      setStatusMessage(t('Speech recognition not supported in this browser', 'এই ব্রাউজারে স্পিচ রিকগনিশন সমর্থিত নয়'));
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = language === 'bn' ? 'bn-BD' : 'en-US';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        setProcessingStatus('voice');
+        setStatusMessage(t('Listening... Speak your food items', 'শুনছি... আপনার খাবারের নাম বলুন'));
+      };
+
+      recognition.onerror = (e: any) => {
+        console.error('Speech recognition error:', e);
+        setIsRecording(false);
+        setStatusType('error');
+        setStatusMessage(t('Error recognizing speech', 'স্পিচ রিকগনিশন ত্রুটি'));
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognition.onresult = async (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript) {
+          setStatusMessage(t(`Transcribed: "${transcript}"`, `অনুলিখন: "${transcript}"`));
+          await sendVoiceTranscription(transcript);
+        } else {
+          setStatusType('error');
+          setStatusMessage(t('Could not detect any speech', 'কোনো কথা সনাক্ত করা যায়নি'));
+        }
+      };
+
+      (window as any)._activeRecognition = recognition;
+      recognition.start();
+    } catch (error) {
+      console.error('Speech recognition startup error:', error);
+      setStatusType('error');
+      setStatusMessage(t('Failed to start speech recognition', 'স্পিচ রিকগনিশন শুরু করতে ব্যর্থ'));
     }
   };
 
   const stopVoiceRecording = () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
+    if ((window as any)._activeRecognition) {
+      try {
+        (window as any)._activeRecognition.stop();
+      } catch (err) {
+        console.error(err);
+      }
       setIsRecording(false);
     }
   };
 
-  // Process voice audio using Web Speech API
-  const processVoiceAudio = async (audioBlob: Blob) => {
+  const sendVoiceTranscription = async (transcript: string) => {
     try {
       setIsProcessing(true);
       setProcessingStatus('voice');
-      setStatusMessage(t('Processing voice...', 'ভয়েস প্রক্রিয়াকরণ হচ্ছে...'));
+      setStatusMessage(t('Analyzing transcription...', 'অনুলিখন বিশ্লেষণ করা হচ্ছে...'));
 
-      // Use Web Speech API for transcription
-      const recognition = new (window as any).webkitSpeechRecognition();
-      recognition.lang = 'en-US';
-      
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      
-      // For demo, we'll use a simple mock transcription
-      // In production, use actual speech-to-text service
-      const mockTranscription = 'rice one cup egg two pieces banana one';
-      
-      // Send to backend for parsing
-      const response = await apiService.parseVoiceTranscription(mockTranscription);
-      
+      const response = await apiService.parseVoiceTranscription(transcript);
+
       if (response.success && response.data?.items) {
         setParsedItems(response.data.items);
         setShowParsedItems(true);
@@ -104,12 +118,12 @@ export default function Nutrition() {
         setStatusMessage(t(`Found ${response.data.count} food item(s) from voice`, `ভয়েস থেকে ${response.data.count}টি খাবার পাওয়া গেছে`));
       } else {
         setStatusType('error');
-        setStatusMessage(t('Could not parse voice input', 'ভয়েস ইনপুট বিশ্লেষণ করা যায়নি'));
+        setStatusMessage(t('Could not parse transcription', 'অনুলিখন বিশ্লেষণ করা যায়নি'));
       }
     } catch (error) {
-      console.error('Voice processing error:', error);
+      console.error('Voice parsing error:', error);
       setStatusType('error');
-      setStatusMessage(t('Failed to process voice input', 'ভয়েস ইনপুট প্রক্রিয়াকরণ ব্যর্থ'));
+      setStatusMessage(t('Failed to parse voice transcription', 'ভয়েস অনুলিখন বিশ্লেষণ ব্যর্থ'));
     } finally {
       setIsProcessing(false);
       setProcessingStatus('idle');
