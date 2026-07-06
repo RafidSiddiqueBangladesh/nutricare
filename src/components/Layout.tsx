@@ -98,7 +98,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </div>
             )}
             <span className="font-medium text-sm primary-text">
-              {activeNavItem?.label || t('NutriCare AI', 'নিউট্রিকেয়ার এআই')}
+              {activeNavItem?.label || t('Live Saving AI', 'লাইভ সেভিং এআই')}
             </span>
             <div className="w-1.5 h-1.5 rounded-full primary-color" />
           </div>
@@ -163,7 +163,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <ShieldAlert size={20} />
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-widest text-white/40 font-bold">{t('NutriCare AI', 'নিউট্রিকেয়ার এআই')}</p>
+                    <p className="text-xs uppercase tracking-widest text-white/40 font-bold">{t('Live Saving AI', 'লাইভ সেভিং এআই')}</p>
                     <h2 className="text-xl font-black">{t('Control Center', 'কন্ট্রোল সেন্টার')}</h2>
                   </div>
                 </div>

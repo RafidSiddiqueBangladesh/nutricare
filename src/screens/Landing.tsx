@@ -261,12 +261,12 @@ export default function Landing() {
     if (!whatsappNumber || whatsappNumber.length < 6) return;
     const cleanNum = (countryCode + whatsappNumber).replace(/[^0-9+]/g, '').replace('+', '');
     const msg = encodeURIComponent(
-      `🏥 NUTRICARE AI — ${t('Emergency Health Report', 'জরুরি স্বাস্থ্য রিপোর্ট')}\n\n` +
+      `🏥 LIVE SAVING AI — ${t('Emergency Health Report', 'জরুরি স্বাস্থ্য রিপোর্ট')}\n\n` +
         `❤️ ${t('Heart Rate', 'হার্ট রেট')}: 72 bpm\n` +
         `🌬️ ${t('Resp. Rate', 'শ্বাসের হার')}: 16/min\n` +
         `📊 ${t('HRV', 'এইচআরভি')}: 65 ms\n` +
         `🩺 ${t('Status', 'অবস্থা')}: ${t('Normal — No immediate action needed', 'স্বাভাবিক — তাৎক্ষণিক ব্যবস্থার প্রয়োজন নেই')}\n\n` +
-        `${t('Sent automatically via NutriCare AI', 'নিউট্রিকেয়ার এআই থেকে স্বয়ংক্রিয়ভাবে প্রেরিত')}`
+        `${t('Sent automatically via Live Saving AI', 'লাইভ সেভিং এআই থেকে স্বয়ংক্রিয়ভাবে প্রেরিত')}`
     );
     window.open(`https://wa.me/${cleanNum}?text=${msg}`, '_blank');
     setDemoSent(true);
@@ -292,7 +292,7 @@ export default function Landing() {
               <Heart size={22} className="text-teal-950" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-white tracking-tight leading-none">NutriCare AI</h1>
+              <h1 className="text-xl font-black text-white tracking-tight leading-none">Live Saving AI</h1>
               <p className="text-[9px] text-teal-400/80 font-bold uppercase tracking-[0.15em]">{t('Digital Health Companion', 'ডিজিটাল হেলথ কম্প্যানিয়ন')}</p>
             </div>
           </div>
@@ -750,8 +750,8 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 text-center text-white/35 text-xs font-mono">
           <p>
             {t(
-              '© 2026 NutriCare AI. All rights reserved. | AI-Powered Digital Health Companion | Privacy First',
-              '© ২০২৬ নিউট্রিকেয়ার এআই। সর্বস্বত্ব সংরক্ষিত। | এআই চালিত ডিজিটাল হেলথ পার্টনার | গোপনীয়তা প্রথম'
+              '© 2026 Live Saving AI. All rights reserved. | AI-Powered Digital Health Companion | Privacy First',
+              '© ২০২৬ লাইভ সেভিং এআই। সর্বস্বত্ব সংরক্ষিত। | এআই চালিত ডিজিটাল হেলথ পার্টনার | গোপনীয়তা প্রথম'
             )}
           </p>
         </div>

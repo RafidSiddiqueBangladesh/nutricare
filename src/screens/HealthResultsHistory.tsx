@@ -122,7 +122,7 @@ export default function HealthResultsHistory() {
   };
 
   const shareSingleResult = (result: HealthResult) => {
-    let text = `🏥 NUTRICARE AI — ${getTypeLabel(result.type).toUpperCase()}\n`;
+    let text = `🏥 LIVE SAVING AI — ${getTypeLabel(result.type).toUpperCase()}\n`;
     text += `⏰ ${t('Time', 'সময়')}: ${new Date(result.timestamp).toLocaleString()}\n\n`;
     
     if (result.type === 'vitals') {
@@ -149,7 +149,7 @@ export default function HealthResultsHistory() {
     text += `• ${t('Health Helpline', 'স্বাস্থ্য হেল্পলাইন')}: 10666\n`;
     text += `• ${t('Fire Service', 'ফায়ার সার্ভিস')}: 9555\n`;
     text += `━━━━━━━━━━━━━━━━━━━━\n`;
-    text += `${t('Sent via NutriCare AI', 'নিউট্রিকেয়ার এআই থেকে প্রেরিত')}`;
+    text += `${t('Sent via Live Saving AI', 'লাইভ সেভিং এআই থেকে প্রেরিত')}`;
 
     const saved = localStorage.getItem('wa-auto-send-settings');
     let numbers: string[] = [];

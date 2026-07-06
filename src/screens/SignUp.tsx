@@ -97,7 +97,7 @@ export default function SignUp() {
             <div className="w-12 h-12 rounded-2xl primary-color flex items-center justify-center">
               <Heart size={28} className="text-black" />
             </div>
-            <h1 className="text-2xl font-black primary-text">Nutricare</h1>
+            <h1 className="text-2xl font-black primary-text">Live Saving AI</h1>
           </motion.div>
 
           <motion.div
